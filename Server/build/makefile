@@ -5,7 +5,7 @@
 
 CFLAGS = -Wall -g
 LDFLAGS =
-SOURCES = ../src/main.c ../src/user_list.c ../src/client_eh.c ../src/eh_list.c ../src/reactor.c ../src/server_eh.c 
+SOURCES = ../src/main.c ../src/client_eh.c ../src/eh_list.c ../src/reactor.c ../src/server_eh.c 
 NAME = server
 
 OBJECTS = $(SOURCES:.c=.o)

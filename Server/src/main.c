@@ -16,8 +16,10 @@ int main(int argc, const char *argv[])
     ////////////
     reactor *r = create_reactor(size);
     event_handler *s_eh = create_server_eh(r,port,size);
-    r->add_eh(r,s_eh);
-    r->event_loop(r);
+    if (s_eh != NULL){
+        r->add_eh(r,s_eh);
+        r->event_loop(r);
+    }
 
     return 0;
     ////////////

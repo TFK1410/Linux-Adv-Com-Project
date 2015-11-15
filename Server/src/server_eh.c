@@ -53,12 +53,11 @@ event_handler* create_server_eh(reactor *r, int port, int size){
     if (bind(ctx->fd, (struct sockaddr*) &srv_addr, sizeof(srv_addr)) < 0) {
         printf("Cannot bind socket\n");
         close(ctx->fd);
-      free(s_eh);
-      free(ctx);
-      return NULL;
+        free(s_eh);
+        free(ctx);
+        return NULL;
     }
 
-    //listen
     if (listen(ctx->fd, 1) < 0) {
         printf("Cannot listen\n");
         close(ctx->fd);
@@ -72,8 +71,6 @@ event_handler* create_server_eh(reactor *r, int port, int size){
     s_eh->get_fd = get_fd;
     s_eh->handle_event = handle_event;
     s_eh->destroy = destroy_server_eh;
-
-    create_userlist(size);
 
     printf("Server is up and running! Type \"e...\" or \"E...\" to exit.\n");
 
