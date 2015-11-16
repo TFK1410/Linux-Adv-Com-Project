@@ -38,7 +38,8 @@ static int sendbytes(const char* msg, int fd){
 
 static void handle_ifconfig(char* iface, int fd){
     struct ifreq ifr = {};
-    char message[1000] = "\0";
+    FILE *proc = NULL;
+    char message[1000] = "\0", mac[18] = "\0", buf[256] = "\0", ipv6[40] = "\0";
     iface[strlen(iface)-2] = '\0';
 
     ifr.ifr_addr.sa_family = AF_INET;
@@ -48,12 +49,43 @@ static void handle_ifconfig(char* iface, int fd){
     else
         strncpy(ifr.ifr_name , iface , IFNAMSIZ-1);//iface - interface name
 
+    strcat(message, "IPv4 Address: ");
     ioctl(fd, SIOCGIFADDR, &ifr);//ipv4
     strcat(message, inet_ntoa(( (struct sockaddr_in *)&ifr.ifr_addr )->sin_addr));
+    strcat(message, "\n");
 
+    strcat(message, "Network Mask: ");
     ioctl(fd, SIOCGIFNETMASK, &ifr);//net_mask
     strcat(message, inet_ntoa(( (struct sockaddr_in *)&ifr.ifr_addr )->sin_addr));
     strcat(message, "\n");
+
+    strcat(message, "MAC: ");
+    ioctl(fd, SIOCGIFHWADDR, &ifr);//MAC
+    sprintf(mac, "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n",
+            ifr.ifr_hwaddr.sa_data[0], ifr.ifr_hwaddr.sa_data[1],
+            ifr.ifr_hwaddr.sa_data[2], ifr.ifr_hwaddr.sa_data[3],
+            ifr.ifr_hwaddr.sa_data[4], ifr.ifr_hwaddr.sa_data[5]);
+    strcat(message, mac);
+
+    if((proc = fopen("/proc/net/if_inet6", "r")) == NULL)
+        fprintf(stderr, "Could not open /proc/net/if_inet6\n");
+    else{
+        while(fgets(buf, 256, proc) != NULL){
+            if(strstr(buf, iface) != NULL){
+                strcat(message, "IPV6: ");
+                sprintf(ipv6, "%c%c%c%c:%c%c%c%c:%c%c%c%c:%c%c%c%c:%c%c%c%c:%c%c%c%c:%c%c%c%c:%c%c%c%c\n",
+				buf[0], buf[1], buf[2], buf[3],
+				buf[4], buf[5], buf[6], buf[7],
+				buf[8], buf[9], buf[10], buf[11],
+				buf[12], buf[13], buf[14], buf[15],
+				buf[16], buf[17], buf[18], buf[19],
+				buf[20], buf[21], buf[22], buf[23],
+				buf[24], buf[25], buf[26], buf[27],
+				buf[28], buf[29], buf[30], buf[31]);
+                strcat(message, ipv6);
+            }
+        }
+    }
 
     sendbytes(message,fd);
 }
