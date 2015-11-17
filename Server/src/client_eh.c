@@ -49,6 +49,18 @@ static void handle_ifconfig(char* iface, int fd){
     else
         strncpy(ifr.ifr_name , iface , IFNAMSIZ-1);//iface - interface name
 
+    if(ioctl(fd, SIOCGIFFLAGS, &ifr) == -1){//flags
+        sprintf(message, "No device with name %s found!\n", iface);
+        sendbytes(message,fd);
+        return;
+    }
+
+    strcat(message, "Status: ");
+    if(ifr.ifr_flags & IFF_UP)
+        strcat(message, "UP\n");
+    else
+        strcat(message, "DOWN\n");
+
     strcat(message, "IPv4 Address: ");
     ioctl(fd, SIOCGIFADDR, &ifr);//ipv4
     strcat(message, inet_ntoa(( (struct sockaddr_in *)&ifr.ifr_addr )->sin_addr));

@@ -3,6 +3,11 @@
 
 int main(int argc, const char *argv[])
 {
+    if(geteuid()!=0){
+        printf("Server requires admin privileges. Run as root.\n");
+        return 1;
+    }
+
     if(argc<2 || argc>3){
         printf("Wrong argument count.\n");
         printf("run using task1 <user_numb> [<port>]\n");
