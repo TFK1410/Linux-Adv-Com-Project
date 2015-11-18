@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
 #include "client_eh.h"
@@ -40,7 +41,9 @@ static void handle_ifconfig(char* iface, int fd){
     struct ifreq ifr = {};
     FILE *proc = NULL;
     char message[1000] = "\0", mac[18] = "\0", buf[256] = "\0", ipv6[40] = "\0";
-    iface[strlen(iface)-2] = '\0';
+
+    if(isspace(iface[strlen(iface)-1]))
+        iface[strlen(iface)-1] = '\0';
 
     ifr.ifr_addr.sa_family = AF_INET;
 
@@ -54,6 +57,10 @@ static void handle_ifconfig(char* iface, int fd){
         sendbytes(message,fd);
         return;
     }
+
+    strcat(message, "Interface name: ");
+    strcat(message, iface);
+    strcat(message, "\n");
 
     strcat(message, "Status: ");
     if(ifr.ifr_flags & IFF_UP)
@@ -102,6 +109,61 @@ static void handle_ifconfig(char* iface, int fd){
     sendbytes(message,fd);
 }
 
+
+static void handle_ifconfig_setip(char* iface, int fd, char* ip){
+    struct ifreq ifr = {};
+    char message[1000] = "\0";
+
+    ifr.ifr_addr.sa_family = AF_INET;
+
+    if(strlen(iface)<IFNAMSIZ-1)
+        strncpy(ifr.ifr_name , iface , strlen(iface));//iface - interface name
+    else
+        strncpy(ifr.ifr_name , iface , IFNAMSIZ-1);//iface - interface name
+
+    if(ioctl(fd, SIOCGIFFLAGS, &ifr) == -1){//flags
+        sprintf(message, "No device with name %s found!\n", iface);
+        sendbytes(message,fd);
+        return;
+    }
+
+
+    sendbytes(message,fd);
+}
+
+static void handle_ifconfig_setmac(char* iface, int fd, char* mac){
+    struct ifreq ifr = {};
+    char message[1000] = "\0";
+
+    ifr.ifr_addr.sa_family = AF_INET;
+
+    if(strlen(iface)<IFNAMSIZ-1)
+        strncpy(ifr.ifr_name , iface , strlen(iface));//iface - interface name
+    else
+        strncpy(ifr.ifr_name , iface , IFNAMSIZ-1);//iface - interface name
+
+    if(ioctl(fd, SIOCGIFFLAGS, &ifr) == -1){//flags
+        sprintf(message, "No device with name %s found!\n", iface);
+        sendbytes(message,fd);
+        return;
+    }
+
+
+    sendbytes(message,fd);
+}
+
+static void handle_ifconfig_all(int fd){
+    struct ifreq ifr = {};
+    int i = 1;
+    ifr.ifr_addr.sa_family = AF_INET;
+    for (;;++i){
+        ifr.ifr_ifindex = i;
+        if(ioctl(fd, SIOCGIFNAME, &ifr) == -1)
+            return;
+        handle_ifconfig(ifr.ifr_name, fd);
+    }
+}
+
 /*
 int disc_user(int epoll_fd, struct epoll_event *es, struct epoll_event *e){
     users->rm_by_fd(users,es->data.fd);
@@ -118,15 +180,48 @@ static int get_fd(event_handler *self){
 
 static int handle_event(event_handler *self, const struct epoll_event *e){
     size_t msg_len = -1;
-    char *buff = 0;
+    char *buff = 0, *word = 0, *dev = 0;
 
     if (e->events & (EPOLLHUP | EPOLLERR | EPOLLRDHUP))
         return 1;
     else if (e->events & EPOLLIN) {
         msg_len = receivebytes(e->data.fd, &buff);
         if (msg_len > 1) {
-            handle_ifconfig(buff,e->data.fd);
-            //sendbytes("1.1.Unknown message\n",e->data.fd);
+            while(!isalnum(buff[msg_len-1])){
+                buff[msg_len-1]='\0';
+                --msg_len;
+            }
+            word = strtok(buff," ");
+            if(strcmp("show",word)==0){
+                word = strtok(NULL," ");
+                if(!word)
+                    handle_ifconfig_all(e->data.fd);
+                else{
+                    handle_ifconfig(word,e->data.fd);
+                    while((word = strtok(NULL," ")) != NULL)
+                        handle_ifconfig(word,e->data.fd);
+                }
+            }
+            else if(strcmp("setip",word)==0){
+                dev = strtok(buff," ");
+                if(!dev)
+                    sendbytes("Write setip <interface> <a.b.c.d/mask>\n",e->data.fd);
+                else{
+                    word = strtok(NULL," ");
+                    handle_ifconfig_setip(dev,e->data.fd,word);
+                }
+            }
+            else if(strcmp("setmac",word)==0){
+                dev = strtok(buff," ");
+                if(!dev)
+                    sendbytes("Write setmac <interface> <aa:bb:cc:dd:ee:ff>\n",e->data.fd);
+                else{
+                    word = strtok(NULL," ");
+                    handle_ifconfig_setmac(dev,e->data.fd,word);
+                }
+            }
+            else
+                sendbytes("Unknown message\n",e->data.fd);
         } else
             return 1;
         if (buff){ free(buff); buff = NULL; }
