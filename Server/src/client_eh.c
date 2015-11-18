@@ -4,10 +4,13 @@
 #include <ctype.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
+#include <regex.h>
 #include "client_eh.h"
 
 struct eh_ctx {
     int fd;
+    regex_t mac;
+    regex_t ipm;
 };
 
 static int sendbytes(const char* msg, int fd);
@@ -19,6 +22,7 @@ static size_t receivebytes(int fd, char **msg){
     size_t len=0;
 
     len=read(fd,buff,10000);
+    if(len < 1) return 0;
     if(len>10000) lseek(fd,0,SEEK_END);
 
     (*msg)=malloc((len+1)*sizeof(char));
@@ -110,9 +114,17 @@ static void handle_ifconfig(char* iface, int fd){
 }
 
 
-static void handle_ifconfig_setip(char* iface, int fd, char* ip){
+static void handle_ifconfig_setip(event_handler *self, char* iface, int fd, char* ip){
     struct ifreq ifr = {};
     char message[1000] = "\0";
+
+    if(ip != NULL && regexec(&self->ctx->ipm, ip, 0, NULL, 0) == REG_NOMATCH){
+        sendbytes("Invalid ip address and mask format or not given at all (a.b.c.d/mask)\n",fd);
+        return;
+    }
+
+    if(isspace(iface[strlen(iface)-1]))
+        iface[strlen(iface)-1] = '\0';
 
     ifr.ifr_addr.sa_family = AF_INET;
 
@@ -131,9 +143,17 @@ static void handle_ifconfig_setip(char* iface, int fd, char* ip){
     sendbytes(message,fd);
 }
 
-static void handle_ifconfig_setmac(char* iface, int fd, char* mac){
+static void handle_ifconfig_setmac(event_handler *self, char* iface, int fd, char* mac){
     struct ifreq ifr = {};
     char message[1000] = "\0";
+
+    if(mac != NULL && regexec(&self->ctx->mac, mac, 0, NULL, 0)){
+        sendbytes("Invalid mac address format or not given at all (aa:bb:cc:dd:ee:ff)\n",fd);
+        return;
+    }
+
+    if(isspace(iface[strlen(iface)-1]))
+        iface[strlen(iface)-1] = '\0';
 
     ifr.ifr_addr.sa_family = AF_INET;
 
@@ -186,11 +206,11 @@ static int handle_event(event_handler *self, const struct epoll_event *e){
         return 1;
     else if (e->events & EPOLLIN) {
         msg_len = receivebytes(e->data.fd, &buff);
+        while(msg_len > 2 && !isalnum(buff[msg_len-1])){
+            buff[msg_len-1]='\0';
+            --msg_len;
+        }
         if (msg_len > 1) {
-            while(!isalnum(buff[msg_len-1])){
-                buff[msg_len-1]='\0';
-                --msg_len;
-            }
             word = strtok(buff," ");
             if(strcmp("show",word)==0){
                 word = strtok(NULL," ");
@@ -203,21 +223,21 @@ static int handle_event(event_handler *self, const struct epoll_event *e){
                 }
             }
             else if(strcmp("setip",word)==0){
-                dev = strtok(buff," ");
+                dev = strtok(NULL," ");
                 if(!dev)
                     sendbytes("Write setip <interface> <a.b.c.d/mask>\n",e->data.fd);
                 else{
                     word = strtok(NULL," ");
-                    handle_ifconfig_setip(dev,e->data.fd,word);
+                    handle_ifconfig_setip(self,dev,e->data.fd,word);
                 }
             }
             else if(strcmp("setmac",word)==0){
-                dev = strtok(buff," ");
+                dev = strtok(NULL," ");
                 if(!dev)
                     sendbytes("Write setmac <interface> <aa:bb:cc:dd:ee:ff>\n",e->data.fd);
                 else{
                     word = strtok(NULL," ");
-                    handle_ifconfig_setmac(dev,e->data.fd,word);
+                    handle_ifconfig_setmac(self,dev,e->data.fd,word);
                 }
             }
             else
@@ -231,6 +251,8 @@ static int handle_event(event_handler *self, const struct epoll_event *e){
 
 static void destroy_client_eh(event_handler *self){
     close(self->ctx->fd);
+    regfree(&self->ctx->ipm);
+    regfree(&self->ctx->mac);
     free(self->ctx);
     free(self);
 }
@@ -238,6 +260,19 @@ static void destroy_client_eh(event_handler *self){
 event_handler* create_client_eh(int cli_fd){
     event_handler *s_eh = malloc(sizeof(event_handler));
     eh_ctx *ctx = malloc(sizeof(eh_ctx));
+
+    if(regcomp(&ctx->ipm, "^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\\/([0-9]|[1-2][0-9]|3[0-2])$", REG_EXTENDED)){
+        free(s_eh);
+        free(ctx);
+        return NULL;
+    }
+
+    if(regcomp(&ctx->mac, "^([0-f]{2}:){5}[0-f]{2}$", REG_EXTENDED)){
+        regfree(&ctx->ipm);
+        free(s_eh);
+        free(ctx);
+        return NULL;
+    }
 
     ctx->fd = cli_fd;
 
