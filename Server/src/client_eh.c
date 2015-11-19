@@ -4,7 +4,9 @@
 #include <ctype.h>
 #include <sys/ioctl.h>
 #include <net/if.h>
+#include <net/if_arp.h>
 #include <regex.h>
+#include <inttypes.h>
 #include "client_eh.h"
 
 struct eh_ctx {
@@ -84,7 +86,7 @@ static void handle_ifconfig(char* iface, int fd){
 
     strcat(message, "MAC: ");
     ioctl(fd, SIOCGIFHWADDR, &ifr);//MAC
-    sprintf(mac, "%.2x:%.2x:%.2x:%.2x:%.2x:%.2x\n",
+    sprintf(mac, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n",
             ifr.ifr_hwaddr.sa_data[0], ifr.ifr_hwaddr.sa_data[1],
             ifr.ifr_hwaddr.sa_data[2], ifr.ifr_hwaddr.sa_data[3],
             ifr.ifr_hwaddr.sa_data[4], ifr.ifr_hwaddr.sa_data[5]);
@@ -160,7 +162,7 @@ static void handle_ifconfig_setip(event_handler *self, char* iface, int fd, char
         return;
     }
 
-    sprintf(message, "Successfully change ip of interface %s to %s and mask %s\n", iface, ip, ipmask);
+    sprintf(message, "Successfully changed ip of the interface %s to %s and mask %s\n", iface, ip, ipmask);
     sendbytes(message,fd);
 }
 
@@ -189,7 +191,23 @@ static void handle_ifconfig_setmac(event_handler *self, char* iface, int fd, cha
         return;
     }
 
+    ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
+    sscanf(mac, "%" SCNx8 ":%" SCNx8 ":%" SCNx8 ":%" SCNx8 ":%" SCNx8 ":%" SCNx8,
+        &ifr.ifr_hwaddr.sa_data[0],
+        &ifr.ifr_hwaddr.sa_data[1],
+        &ifr.ifr_hwaddr.sa_data[2],
+        &ifr.ifr_hwaddr.sa_data[3],
+        &ifr.ifr_hwaddr.sa_data[4],
+        &ifr.ifr_hwaddr.sa_data[5]
+    );
 
+    if(ioctl(fd, SIOCSIFHWADDR, &ifr) == -1){             //set ip address
+        sprintf(message, "Error setting MAC address!\n");
+        sendbytes(message,fd);
+        return;
+    }
+
+    sprintf(message, "Successfully changed mac address of the interface %s to %s\n", iface, mac);
     sendbytes(message,fd);
 }
 
