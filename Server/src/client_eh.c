@@ -116,7 +116,8 @@ static void handle_ifconfig(char* iface, int fd){
 
 static void handle_ifconfig_setip(event_handler *self, char* iface, int fd, char* ip){
     struct ifreq ifr = {};
-    char message[1000] = "\0";
+    char message[1000] = "\0", ipmask[12] = "\0", *word = NULL;
+    u_int mask = 0, bitmask = 0;
 
     if(ip != NULL && regexec(&self->ctx->ipm, ip, 0, NULL, 0) == REG_NOMATCH){
         sendbytes("Invalid ip address and mask format or not given at all (a.b.c.d/mask)\n",fd);
@@ -129,17 +130,37 @@ static void handle_ifconfig_setip(event_handler *self, char* iface, int fd, char
     ifr.ifr_addr.sa_family = AF_INET;
 
     if(strlen(iface)<IFNAMSIZ-1)
-        strncpy(ifr.ifr_name , iface , strlen(iface));//iface - interface name
+        strncpy(ifr.ifr_name , iface , strlen(iface));
     else
-        strncpy(ifr.ifr_name , iface , IFNAMSIZ-1);//iface - interface name
+        strncpy(ifr.ifr_name , iface , IFNAMSIZ-1);
 
-    if(ioctl(fd, SIOCGIFFLAGS, &ifr) == -1){//flags
+    if(ioctl(fd, SIOCGIFFLAGS, &ifr) == -1){            //search for device
         sprintf(message, "No device with name %s found!\n", iface);
         sendbytes(message,fd);
         return;
     }
 
+    ifr.ifr_addr.sa_family = AF_INET;
+    word = strtok(ip,"/");
+    inet_pton(AF_INET, word, &(((struct sockaddr_in*)&ifr.ifr_addr)->sin_addr)); //convert ip to binary
+    if(ioctl(fd, SIOCSIFADDR, &ifr) == -1){             //set ip address
+        sprintf(message, "Error setting IP address!\n");
+        sendbytes(message,fd);
+        return;
+    }
 
+    mask = atoi(strtok(NULL,""));
+    bitmask = 0xFFFFFFFF & ~((1<<(32-mask))-1);
+    sprintf(ipmask, "%d.%d.%d.%d", (bitmask & 0xFF000000)>>24, (bitmask & 0x00FF0000)>>16, (bitmask & 0x0000FF00)>>8, bitmask & 0x000000FF);
+
+    inet_pton(AF_INET, ipmask, &(((struct sockaddr_in*)&ifr.ifr_netmask)->sin_addr));    //convert mask to binary
+    if(ioctl(fd, SIOCSIFNETMASK, &ifr) == -1){           //set network mask
+        sprintf(message, "Error setting network mask!\n");
+        sendbytes(message,fd);
+        return;
+    }
+
+    sprintf(message, "Successfully change ip of interface %s to %s and mask %s\n", iface, ip, ipmask);
     sendbytes(message,fd);
 }
 
@@ -148,7 +169,7 @@ static void handle_ifconfig_setmac(event_handler *self, char* iface, int fd, cha
     char message[1000] = "\0";
 
     if(mac != NULL && regexec(&self->ctx->mac, mac, 0, NULL, 0)){
-        sendbytes("Invalid mac address format or not given at all (aa:bb:cc:dd:ee:ff)\n",fd);
+        sendbytes("Invalid mac address format or not given at all (12:34:56:78:90:ab)\n",fd);
         return;
     }
 
