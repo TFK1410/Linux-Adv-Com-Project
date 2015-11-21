@@ -12,24 +12,24 @@ static void add_eh(reactor *self, event_handler *eh){
     e.events = EPOLLIN;
     e.data.fd = eh->get_fd(eh);
     if(!self->ctx->ehl->add_eh(self->ctx->ehl, eh)){
-    if (epoll_ctl(self->ctx->epoll_fd, EPOLL_CTL_ADD, eh->get_fd(eh), &e) < 0) {
-      printf("Cannot add socket to epoll\n");
-      self->ctx->ehl->rm_eh(self->ctx->ehl, eh);
-      close(self->ctx->epoll_fd);
+        if(epoll_ctl(self->ctx->epoll_fd, EPOLL_CTL_ADD, eh->get_fd(eh), &e) < 0) {
+            fprintf(stderr, "Cannot add socket to epoll\n");
+            self->ctx->ehl->rm_eh(self->ctx->ehl, eh);
+            close(self->ctx->epoll_fd);
+        }
     }
-  }
 }
 
 static void rm_eh(reactor *self, event_handler *eh){
     struct epoll_event e;
     memset(&e, 0, sizeof(struct epoll_event));
     e.events = EPOLLIN;
-  e.data.fd = eh->get_fd(eh);
+    e.data.fd = eh->get_fd(eh);
     if (epoll_ctl(self->ctx->epoll_fd, EPOLL_CTL_DEL, eh->get_fd(eh), &e) < 0) {
-    printf("Cannot remove socket from epoll\n");
-    close(self->ctx->epoll_fd);
-    return;
-  }
+        fprintf(stderr, "Cannot remove socket from epoll\n");
+        close(self->ctx->epoll_fd);
+        return;
+    }
     self->ctx->ehl->rm_eh(self->ctx->ehl, eh);
 }
 
@@ -41,7 +41,7 @@ static void event_loop(reactor *self){
     while(1){
         i = epoll_wait(self->ctx->epoll_fd, es, self->ctx->size, -1);
         if (i < 0) {
-            printf("Cannot wait for events\n");
+            fprintf(stderr, "Cannot wait for events\n");
             close(self->ctx->epoll_fd);
             return;
         }
@@ -57,7 +57,7 @@ static void event_loop(reactor *self){
 reactor* create_reactor(int size){
     int epoll_fd = epoll_create(size);
     if (epoll_fd < 0) {
-        printf("Cannot create epoll\n");
+        fprintf(stderr, "Cannot create epoll\n");
         return NULL;
     }
     reactor *r = malloc(sizeof(reactor));

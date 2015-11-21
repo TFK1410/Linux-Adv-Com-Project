@@ -4,7 +4,7 @@
 #SYSROOT=$(HOST_PATH)/usr/i686-buildroot-linux-uclibc/sysroot
 
 CFLAGS = -Wall -g
-LDFLAGS =
+LDFLAGS = -lconfig
 SOURCES = ../src/main.c ../src/client_eh.c ../src/eh_list.c ../src/reactor.c ../src/server_eh.c 
 NAME = server
 

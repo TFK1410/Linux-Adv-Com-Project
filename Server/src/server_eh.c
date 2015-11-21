@@ -19,7 +19,7 @@ static int handle_event(event_handler *self, const struct epoll_event *e){
 
     cli_fd = accept(self->ctx->fd, (struct sockaddr *) &cli_addr, &cli_addr_len);
     if(cli_fd<0){
-        printf("Cannot accept client\n");
+        fprintf(stderr, "Cannot accept client\n");
         exit(1);
     }
 
@@ -43,7 +43,7 @@ event_handler* create_server_eh(reactor *r, int port, int size){
 
     ctx->fd = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, 0);
     if (ctx->fd < 0) {
-        printf("Cannot create socket\n");
+        fprintf(stderr, "Cannot create socket\n");
         return NULL;
     }
 
@@ -51,7 +51,7 @@ event_handler* create_server_eh(reactor *r, int port, int size){
     srv_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     srv_addr.sin_port = htons(port);
     if (bind(ctx->fd, (struct sockaddr*) &srv_addr, sizeof(srv_addr)) < 0) {
-        printf("Cannot bind socket\n");
+        fprintf(stderr, "Cannot bind socket\n");
         close(ctx->fd);
         free(s_eh);
         free(ctx);
@@ -59,7 +59,7 @@ event_handler* create_server_eh(reactor *r, int port, int size){
     }
 
     if (listen(ctx->fd, 1) < 0) {
-        printf("Cannot listen\n");
+        fprintf(stderr, "Cannot listen\n");
         close(ctx->fd);
         free(s_eh);
         free(ctx);
@@ -72,7 +72,7 @@ event_handler* create_server_eh(reactor *r, int port, int size){
     s_eh->handle_event = handle_event;
     s_eh->destroy = destroy_server_eh;
 
-    printf("Server is up and running! Type \"e...\" or \"E...\" to exit.\n");
+    printf("Server is up and running!\n");
 
     return s_eh;
 }

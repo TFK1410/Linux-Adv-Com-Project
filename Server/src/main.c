@@ -1,23 +1,50 @@
 #include <stdlib.h>
+#include <libconfig.h>
 #include "server_eh.h"
+
+static int load_cfg(char* cfg_name, int* port, int* size){
+    config_t cfg;
+    config_setting_t *setting = NULL;
+
+    config_init(&cfg);
+
+    if (!config_read_file(&cfg, cfg_name))
+    {
+        fprintf(stderr, "%s:%d - %s\n", config_error_file(&cfg), config_error_line(&cfg), config_error_text(&cfg));
+        config_destroy(&cfg);
+        return -1;
+    }
+
+    setting = config_lookup(&cfg, "cfg");
+
+    if (setting != NULL) {
+        if (!config_setting_lookup_int(setting, "port", port)) {
+            (*port) = 5555;
+            fprintf(stderr, "Port number not specified. Using default 5555.\n");
+        }
+
+        if (!config_setting_lookup_int(setting, "users", size)) {
+            (*size) = 10;
+            fprintf(stderr, "Max number of users not specified. Using default 10.\n");
+        }
+    }
+
+    config_destroy(&cfg);
+    return 0;
+}
 
 int main(int argc, const char *argv[])
 {
+    int port = 0, size = 0;
     if(geteuid()!=0){
-        printf("Server requires admin privileges. Run as root.\n");
+        fprintf(stderr, "Server requires admin privileges. Run as root.\n");
         return 1;
     }
 
-    if(argc<2 || argc>3){
-        printf("Wrong argument count.\n");
-        printf("run using task1 <user_numb> [<port>]\n");
+    if(load_cfg("server.conf", &port, &size)){
+        fprintf(stderr, "Error when reading config file. Shutting down now.\n");
         return 1;
     }
-    size_t size = atoi(argv[1])+1;
-    int port = 5555;
-    if(argc==3)
-        port = atoi(argv[2]);
-
     ////////////
     reactor *r = create_reactor(size);
     event_handler *s_eh = create_server_eh(r,port,size);
