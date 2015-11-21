@@ -21,6 +21,9 @@
 *.dylib
 
 # Executables
+Server/build/server
+Server/build/server_host
+Server/build/server_test
 *.exe
 *.out
 *.app
