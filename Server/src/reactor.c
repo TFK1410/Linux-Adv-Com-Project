@@ -1,57 +1,77 @@
 #include "reactor.h"
 
+#include <stdlib.h>
+
+#define MAX_BATCHED_EVENTS 5
+
 struct reactor_ctx{
     size_t size;
-    eh_list *ehl;
+    size_t registered_handlers;
     int epoll_fd;
 };
 
-static void add_eh(reactor *self, event_handler *eh){
-    struct epoll_event e;
-    memset(&e, 0, sizeof(struct epoll_event));
-    e.events = EPOLLIN;
-    e.data.fd = eh->get_fd(eh);
-    if(!self->ctx->ehl->add_eh(self->ctx->ehl, eh)){
-        if(epoll_ctl(self->ctx->epoll_fd, EPOLL_CTL_ADD, eh->get_fd(eh), &e) < 0) {
-            fprintf(stderr, "Cannot add socket to epoll\n");
-            self->ctx->ehl->rm_eh(self->ctx->ehl, eh);
-            close(self->ctx->epoll_fd);
+static bool add_eh(reactor *self, event_handler *eh) {
+    struct epoll_event e = {
+        .events = EPOLLIN,
+        .data = {
+            .ptr = eh
         }
+    };
+
+    /* Enforce max events limit */
+    if (self->ctx->registered_handlers >= self->ctx->size) {
+        fprintf(stderr, "Dropping event handler due to limit\n");
+        eh->destroy(eh);
+        return false;
     }
+    self->ctx->registered_handlers++;
+
+    if (epoll_ctl(self->ctx->epoll_fd, EPOLL_CTL_ADD, eh->get_fd(eh), &e) < 0) {
+        fprintf(stderr, "Cannot add socket to epoll\n");
+        eh->destroy(eh);
+        return false;
+    }
+    return true;
 }
 
 static void rm_eh(reactor *self, event_handler *eh){
-    struct epoll_event e;
-    memset(&e, 0, sizeof(struct epoll_event));
-    e.events = EPOLLIN;
-    e.data.fd = eh->get_fd(eh);
+    struct epoll_event e = {};
     if (epoll_ctl(self->ctx->epoll_fd, EPOLL_CTL_DEL, eh->get_fd(eh), &e) < 0) {
         fprintf(stderr, "Cannot remove socket from epoll\n");
-        close(self->ctx->epoll_fd);
-        return;
+        // Probably bogus rm_eh call; but generally not fatal error
     }
-    self->ctx->ehl->rm_eh(self->ctx->ehl, eh);
+
+    // Increase available spaces count up
+    self->ctx->registered_handlers--;
 }
 
 static void event_loop(reactor *self){
     int i=0;
-    struct epoll_event *es=malloc(self->ctx->size*sizeof(struct epoll_event));
-    memset(es, 0, self->ctx->size*sizeof(struct epoll_event));
+    struct epoll_event *events = calloc(MAX_BATCHED_EVENTS, sizeof(struct epoll_event));
 
-    while(1){
-        i = epoll_wait(self->ctx->epoll_fd, es, self->ctx->size, -1);
+    for (;;) {
+        i = epoll_wait(self->ctx->epoll_fd, events, self->ctx->size, -1);
         if (i < 0) {
             fprintf(stderr, "Cannot wait for events\n");
-            close(self->ctx->epoll_fd);
             return;
         }
 
         for(--i;i>-1;--i){
-            event_handler *eh = self->ctx->ehl->get_by_fd(self->ctx->ehl, es[i].data.fd);
-            if(eh->handle_event(eh, es[i].events))
+            event_handler *eh = events[i].data.ptr;
+            if (eh->handle_event(eh, events[i].events)) {
                 self->rm_eh(self, eh);
+                eh->destroy(eh);
+            }
         }
     }
+
+    free(events);
+}
+
+static void destroy_reactor(reactor *r) {
+    close(r->ctx->epoll_fd);
+    free(r->ctx);
+    free(r);
 }
 
 reactor* create_reactor(int size){
@@ -62,23 +82,17 @@ reactor* create_reactor(int size){
     }
     reactor *r = malloc(sizeof(reactor));
     reactor_ctx *ctx = malloc(sizeof(reactor_ctx));
-    eh_list *ehl = create_ehl(size);
 
     r->ctx = ctx;
     r->ctx->epoll_fd = epoll_fd;
-    r->ctx->ehl = ehl;
     r->ctx->size = size;
+    r->ctx->registered_handlers = 0;
 
     r->add_eh = add_eh;
     r->rm_eh = rm_eh;
     r->event_loop = event_loop;
+    r->destroy = destroy_reactor;
 
     return r;
 }
 
-void destroy_reactor(reactor *r){
-    destroy_ehl(r->ctx->ehl);
-    close(r->ctx->epoll_fd);
-    free(r->ctx);
-    free(r);
-}

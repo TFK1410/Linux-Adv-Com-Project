@@ -1,5 +1,6 @@
 #include "server_eh.h"
 #include "ifconfigurator.h"
+#include <stdlib.h>
 #include <stdio.h>
 
 struct eh_ctx {

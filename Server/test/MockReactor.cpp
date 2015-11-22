@@ -5,6 +5,7 @@ MockReactor::MockReactor() {
     mockedObject.add_eh = c2cpp_add_eh;
     mockedObject.rm_eh = c2cpp_rm_eh;
     mockedObject.event_loop = c2cpp_event_loop;
+    mockedObject.destroy = c2cpp_destroy;
 }
 
 struct reactor *MockReactor::getStruct()
@@ -12,10 +13,10 @@ struct reactor *MockReactor::getStruct()
     return &mockedObject;
 }
 
-void MockReactor::c2cpp_add_eh(struct reactor *self, event_handler *eh)
+bool MockReactor::c2cpp_add_eh(struct reactor *self, event_handler *eh)
 {
     MockReactor *thiz = (MockReactor *) self->ctx;
-    thiz->add_eh(eh);
+    return thiz->add_eh(eh);
 }
 void MockReactor::c2cpp_rm_eh(struct reactor *self, event_handler *eh)
 {
@@ -26,4 +27,9 @@ void MockReactor::c2cpp_event_loop(struct reactor *self)
 {
     MockReactor *thiz = (MockReactor *) self->ctx;
     thiz->event_loop();
+}
+void MockReactor::c2cpp_destroy(struct reactor *self)
+{
+    MockReactor *thiz = (MockReactor *) self->ctx;
+    thiz->destroy();
 }

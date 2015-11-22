@@ -3,6 +3,7 @@
 
 extern "C" {
 #include <unistd.h>
+#include <sys/epoll.h>
 }
 
 #include <cmock/cmock.h>
@@ -25,5 +26,9 @@ ACTION_P2(MockedWrite, data, len)
 }
 
 DECLARE_FUNCTION_MOCK1(CloseSyscallMock, close, int(int)); 
+
+DECLARE_FUNCTION_MOCK1(EpollCreateSyscallMock, epoll_create, int(int)); 
+DECLARE_FUNCTION_MOCK4(EpollCtlSyscallMock, epoll_ctl, int(int, int, int, struct epoll_event *)); 
+DECLARE_FUNCTION_MOCK4(EpollWaitSyscallMock, epoll_wait, int(int, struct epoll_event *, int, int)); 
 
 #endif
