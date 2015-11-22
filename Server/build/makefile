@@ -8,8 +8,7 @@
 # GTEST_PATH = /home/xubuntu/googletest
 
 BUILDROOT_HOST_PATH = $(BUILDROOT_PATH)/output/host
-BUILDROOT_CC = $(BUILDROOT_HOST_PATH)/usr/bin/i686-buildroot-linux-uclibc-gcc
-BUILDROOT_SYSROOT = $(BUILDROOT_HOST_PATH)/usr/i686-buildroot-linux-uclibc/sysroot
+BUILDROOT_CC = $(BUILDROOT_HOST_PATH)/usr/bin/i686-linux-gcc
 
 
 
