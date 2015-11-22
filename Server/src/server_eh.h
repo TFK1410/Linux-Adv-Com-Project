@@ -5,6 +5,6 @@
 #include "event_handler.h"
 #include "client_eh.h"
 
-event_handler* create_server_eh(reactor *r, int port, int size);
+event_handler* create_server_eh(reactor *r, int port, ifconfigurator *ifc);
 
 #endif

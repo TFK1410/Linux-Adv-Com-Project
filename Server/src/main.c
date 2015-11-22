@@ -1,6 +1,7 @@
 #include <stdlib.h>
 #include <libconfig.h>
 #include "server_eh.h"
+#include "ifconfigurator.h"
 
 static int load_cfg(char* cfg_name, int* port, int* size){
     config_t cfg;
@@ -46,8 +47,9 @@ int main(int argc, const char *argv[])
         return 1;
     }
     ////////////
+    ifconfigurator *ifc = create_ifconfigurator();
     reactor *r = create_reactor(size);
-    event_handler *s_eh = create_server_eh(r,port,size);
+    event_handler *s_eh = create_server_eh(r,port,ifc);
     if (s_eh != NULL){
         r->add_eh(r,s_eh);
         r->event_loop(r);

@@ -8,11 +8,14 @@
 #include <regex.h>
 #include <inttypes.h>
 #include "client_eh.h"
+#include "ifconfigurator.h"
+#include "utils.h"
 
 struct eh_ctx {
     int fd;
     regex_t mac;
     regex_t ipm;
+    ifconfigurator *ifconfigurator;
 };
 
 static int sendbytes(const char* msg, int fd);
@@ -43,184 +46,176 @@ static int sendbytes(const char* msg, int fd){
     return 0;
 }
 
-static void handle_ifconfig(char* iface, int fd){
-    struct ifreq ifr = {};
-    FILE *proc = NULL;
-    char message[1000] = "\0", mac[18] = "\0", buf[256] = "\0", ipv6[40] = "\0";
-
-    if(isspace(iface[strlen(iface)-1]))
-        iface[strlen(iface)-1] = '\0';
-
-    ifr.ifr_addr.sa_family = AF_INET;
-
-    if(strlen(iface)<IFNAMSIZ-1)
-        strncpy(ifr.ifr_name , iface , strlen(iface));//iface - interface name
-    else
-        strncpy(ifr.ifr_name , iface , IFNAMSIZ-1);//iface - interface name
-
-    if(ioctl(fd, SIOCGIFFLAGS, &ifr) == -1){//flags
-        sprintf(message, "No device with name %s found!\n", iface);
-        sendbytes(message,fd);
-        return;
-    }
-
-    strcat(message, "Interface name: ");
-    strcat(message, iface);
-    strcat(message, "\n");
-
-    strcat(message, "Status: ");
-    if(ifr.ifr_flags & IFF_UP)
-        strcat(message, "UP\n");
-    else
-        strcat(message, "DOWN\n");
-
-    strcat(message, "IPv4 Address: ");
-    ioctl(fd, SIOCGIFADDR, &ifr);//ipv4
-    strcat(message, inet_ntoa(( (struct sockaddr_in *)&ifr.ifr_addr )->sin_addr));
-    strcat(message, "\n");
-
-    strcat(message, "Network Mask: ");
-    ioctl(fd, SIOCGIFNETMASK, &ifr);//net_mask
-    strcat(message, inet_ntoa(( (struct sockaddr_in *)&ifr.ifr_addr )->sin_addr));
-    strcat(message, "\n");
-
-    strcat(message, "MAC: ");
-    ioctl(fd, SIOCGIFHWADDR, &ifr);//MAC
-    sprintf(mac, "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx\n",
-            ifr.ifr_hwaddr.sa_data[0], ifr.ifr_hwaddr.sa_data[1],
-            ifr.ifr_hwaddr.sa_data[2], ifr.ifr_hwaddr.sa_data[3],
-            ifr.ifr_hwaddr.sa_data[4], ifr.ifr_hwaddr.sa_data[5]);
-    strcat(message, mac);
-
-    if((proc = fopen("/proc/net/if_inet6", "r")) == NULL)
-        fprintf(stderr, "Could not open /proc/net/if_inet6\n");
-    else{
-        while(fgets(buf, 256, proc) != NULL){
-            if(strstr(buf, iface) != NULL){
-                strcat(message, "IPV6: ");
-                sprintf(ipv6, "%c%c%c%c:%c%c%c%c:%c%c%c%c:%c%c%c%c:%c%c%c%c:%c%c%c%c:%c%c%c%c:%c%c%c%c\n",
-				buf[0], buf[1], buf[2], buf[3],
-				buf[4], buf[5], buf[6], buf[7],
-				buf[8], buf[9], buf[10], buf[11],
-				buf[12], buf[13], buf[14], buf[15],
-				buf[16], buf[17], buf[18], buf[19],
-				buf[20], buf[21], buf[22], buf[23],
-				buf[24], buf[25], buf[26], buf[27],
-				buf[28], buf[29], buf[30], buf[31]);
-                strcat(message, ipv6);
-            }
-        }
-    }
-
-    sendbytes(message,fd);
-}
-
-
-static void handle_ifconfig_setip(event_handler *self, char* iface, int fd, char* ip){
-    struct ifreq ifr = {};
-    char message[1000] = "\0", ipmask[12] = "\0", *word = NULL;
-    u_int mask = 0, bitmask = 0;
-
-    if(ip != NULL && regexec(&self->ctx->ipm, ip, 0, NULL, 0) == REG_NOMATCH){
-        sendbytes("Invalid ip address and mask format or not given at all (a.b.c.d/mask)\n",fd);
-        return;
-    }
-
-    if(isspace(iface[strlen(iface)-1]))
-        iface[strlen(iface)-1] = '\0';
-
-    ifr.ifr_addr.sa_family = AF_INET;
-
-    if(strlen(iface)<IFNAMSIZ-1)
-        strncpy(ifr.ifr_name , iface , strlen(iface));
-    else
-        strncpy(ifr.ifr_name , iface , IFNAMSIZ-1);
-
-    if(ioctl(fd, SIOCGIFFLAGS, &ifr) == -1){            //search for device
-        sprintf(message, "No device with name %s found!\n", iface);
-        sendbytes(message,fd);
-        return;
-    }
-
-    ifr.ifr_addr.sa_family = AF_INET;
-    word = strtok(ip,"/");
-    inet_pton(AF_INET, word, &(((struct sockaddr_in*)&ifr.ifr_addr)->sin_addr)); //convert ip to binary
-    if(ioctl(fd, SIOCSIFADDR, &ifr) == -1){             //set ip address
-        sprintf(message, "Error setting IP address!\n");
-        sendbytes(message,fd);
-        return;
-    }
-
-    mask = atoi(strtok(NULL,""));
-    bitmask = 0xFFFFFFFF & ~((1<<(32-mask))-1);
-    sprintf(ipmask, "%d.%d.%d.%d", (bitmask & 0xFF000000)>>24, (bitmask & 0x00FF0000)>>16, (bitmask & 0x0000FF00)>>8, bitmask & 0x000000FF);
-
-    inet_pton(AF_INET, ipmask, &(((struct sockaddr_in*)&ifr.ifr_netmask)->sin_addr));    //convert mask to binary
-    if(ioctl(fd, SIOCSIFNETMASK, &ifr) == -1){           //set network mask
-        sprintf(message, "Error setting network mask!\n");
-        sendbytes(message,fd);
-        return;
-    }
-
-    sprintf(message, "Successfully changed ip of the interface %s to %s and mask %s\n", iface, ip, ipmask);
-    sendbytes(message,fd);
-}
-
-static void handle_ifconfig_setmac(event_handler *self, char* iface, int fd, char* mac){
-    struct ifreq ifr = {};
+static void handle_ifconfig(event_handler *self, const char* iface) {
     char message[1000] = "\0";
+    char mac[20] = "\0";
+    char ipv4[20] = "\0";
+    char netmask[20] = "\0";
+    char ipv6[40] = "\0";
+    struct ifconfig config;
+    bool success;
 
-    if(mac != NULL && regexec(&self->ctx->mac, mac, 0, NULL, 0)){
-        sendbytes("Invalid mac address format or not given at all (12:34:56:78:90:ab)\n",fd);
-        return;
-    }
 
-    if(isspace(iface[strlen(iface)-1]))
-        iface[strlen(iface)-1] = '\0';
-
-    ifr.ifr_addr.sa_family = AF_INET;
-
-    if(strlen(iface)<IFNAMSIZ-1)
-        strncpy(ifr.ifr_name , iface , strlen(iface));//iface - interface name
-    else
-        strncpy(ifr.ifr_name , iface , IFNAMSIZ-1);//iface - interface name
-
-    if(ioctl(fd, SIOCGIFFLAGS, &ifr) == -1){//flags
+    success = self->ctx->ifconfigurator->get_if_config(self->ctx->ifconfigurator, iface, &config);
+    if (!success) {
         sprintf(message, "No device with name %s found!\n", iface);
-        sendbytes(message,fd);
+        sendbytes(message, self->ctx->fd);
         return;
     }
 
-    ifr.ifr_hwaddr.sa_family = ARPHRD_ETHER;
-    sscanf(mac, "%" SCNx8 ":%" SCNx8 ":%" SCNx8 ":%" SCNx8 ":%" SCNx8 ":%" SCNx8,
-        &ifr.ifr_hwaddr.sa_data[0],
-        &ifr.ifr_hwaddr.sa_data[1],
-        &ifr.ifr_hwaddr.sa_data[2],
-        &ifr.ifr_hwaddr.sa_data[3],
-        &ifr.ifr_hwaddr.sa_data[4],
-        &ifr.ifr_hwaddr.sa_data[5]
+    /* IPv4 */
+    strncpy(ipv4, inet_ntoa(config.ipv4.sin_addr), sizeof(ipv4));
+
+    /* Net mask */
+    strncpy(netmask, inet_ntoa(config.ipv4_netmask.sin_addr), sizeof(netmask));
+
+    /* MAC */
+    snprintf(
+        mac, sizeof(mac),
+        "%02hhx:%02hhx:%02hhx:%02hhx:%02hhx:%02hhx",
+        config.mac.sa_data[0],
+        config.mac.sa_data[1],
+        config.mac.sa_data[2],
+        config.mac.sa_data[3],
+        config.mac.sa_data[4],
+        config.mac.sa_data[5]
     );
 
-    if(ioctl(fd, SIOCSIFHWADDR, &ifr) == -1){             //set ip address
-        sprintf(message, "Error setting MAC address!\n");
-        sendbytes(message,fd);
+    /* IPv6 */
+    snprintf(
+        ipv6, sizeof(ipv6),
+        //"%02hhx%02hhx:%02hhx%02hhx:%02hhx%02hhx:%02hhx%02hhx:%02hhx%02hhx:%02hhx%02hhx:%02hhx%02hhx:%02hhx%02hhx:"
+        "%02hhx%02hhx:%02hhx%02hhx:%02hhx%02hhx:%02hhx%02hhx:%02hhx%02hhx:%02hhx%02hhx:%02hhx%02hhx:%02hhx%02hhx",
+        config.ipv6[ 0],
+        config.ipv6[ 1],
+        config.ipv6[ 2],
+        config.ipv6[ 3],
+        config.ipv6[ 4],
+        config.ipv6[ 5],
+        config.ipv6[ 6],
+        config.ipv6[ 7],
+        config.ipv6[ 8],
+        config.ipv6[ 9],
+        config.ipv6[ 10],
+        config.ipv6[ 11],
+        config.ipv6[ 12],
+        config.ipv6[ 13],
+        config.ipv6[ 14],
+        config.ipv6[ 15]
+    );
+
+    /* Whole message */
+    snprintf(
+        message, sizeof(message),
+        "Interface name: %s\n"
+            "Status: %s\n"
+            "IPv4 Address: %s\n"
+            "Network Mask: %s\n"
+            "MAC: %s\n"
+            "IPV6: %s\n",
+        iface,
+        (config.flags & IFF_UP) ? "UP" : "DOWN",
+        ipv4,
+        netmask,
+        mac,
+        ipv6
+    );
+    sendbytes(message, self->ctx->fd);
+}
+
+
+static void handle_ifconfig_setip(event_handler *self, char* iface, char* ip){
+    //struct ifreq ifr = {};
+    struct sockaddr_in addr;
+    char message[1000] = "\0", ipmask[20] = "\0", *word = NULL;
+    u_int mask = 0, bitmask = 0;
+
+    if(ip == NULL || regexec(&self->ctx->ipm, ip, 0, NULL, 0) == REG_NOMATCH){
+        sendbytes("Invalid ip address and mask format or not given at all (a.b.c.d/mask)\n", self->ctx->fd);
+        return;
+    }
+
+    utils_trim_string(iface);
+
+    /*
+    TODO: verify if device exists or just fail?
+    if(device_exists) {            //search for device
+        sprintf(message, "No device with name %s found!\n", iface);
+        sendbytes(message, self->ctx->fd);
+        return;
+    }
+    */
+
+    word = strtok(ip,"/");
+    inet_pton(AF_INET, word, &addr.sin_addr); //convert ip to binary
+    if (!self->ctx->ifconfigurator->set_ip(self->ctx->ifconfigurator, iface, &addr.sin_addr)){             //set ip address
+        sprintf(message, "Error setting IP address!\n");
+        sendbytes(message, self->ctx->fd);
+        return;
+    }
+
+    /* TODO: clean this conversion code (binary -> text -> binary again) */
+    mask = atoi(strtok(NULL,""));
+    bitmask = 0xFFFFFFFF & ~((1<<(32-mask))-1);
+    snprintf(ipmask, sizeof(ipmask), "%d.%d.%d.%d", (bitmask & 0xFF000000)>>24, (bitmask & 0x00FF0000)>>16, (bitmask & 0x0000FF00)>>8, bitmask & 0x000000FF);
+
+    inet_pton(AF_INET, ipmask, &addr.sin_addr);    //convert mask to binary
+    if (!self->ctx->ifconfigurator->set_net_mask(self->ctx->ifconfigurator, iface, &addr.sin_addr)) {           //set network mask
+        sprintf(message, "Error setting network mask!\n");
+        sendbytes(message, self->ctx->fd);
+        return;
+    }
+
+    snprintf(message, sizeof(message), "Successfully changed ip of the interface %s to %s and mask %s\n", iface, ip, ipmask);
+    sendbytes(message, self->ctx->fd);
+}
+
+static void handle_ifconfig_setmac(event_handler *self, char* iface, char* mac){
+    struct sockaddr hwaddr = {};
+    char message[1000] = "\0";
+
+    if(mac == NULL || regexec(&self->ctx->mac, mac, 0, NULL, 0)){
+        sendbytes("Invalid mac address format or not given at all (12:34:56:78:90:ab)\n", self->ctx->fd);
+        return;
+    }
+
+    utils_trim_string(iface);
+
+    /*
+    TODO: verify if device exists or just fail?
+    if(device_exists) {            //search for device
+        sprintf(message, "No device with name %s found!\n", iface);
+        sendbytes(message, self->ctx->fd);
+        return;
+    }
+    */
+
+    hwaddr.sa_family = ARPHRD_ETHER;
+    sscanf(mac, "%" SCNx8 ":%" SCNx8 ":%" SCNx8 ":%" SCNx8 ":%" SCNx8 ":%" SCNx8,
+        &hwaddr.sa_data[0],
+        &hwaddr.sa_data[1],
+        &hwaddr.sa_data[2],
+        &hwaddr.sa_data[3],
+        &hwaddr.sa_data[4],
+        &hwaddr.sa_data[5]
+    );
+
+    if (!self->ctx->ifconfigurator->set_mac(self->ctx->ifconfigurator, iface, &hwaddr)){             //set ip address
+        sendbytes("Error setting MAC address!\n", self->ctx->fd);
         return;
     }
 
     sprintf(message, "Successfully changed mac address of the interface %s to %s\n", iface, mac);
-    sendbytes(message,fd);
+    sendbytes(message, self->ctx->fd);
 }
 
-static void handle_ifconfig_all(int fd){
-    struct ifreq ifr = {};
-    int i = 1;
-    ifr.ifr_addr.sa_family = AF_INET;
-    for (;;++i){
-        ifr.ifr_ifindex = i;
-        if(ioctl(fd, SIOCGIFNAME, &ifr) == -1)
-            return;
-        handle_ifconfig(ifr.ifr_name, fd);
-    }
+static void list_interfaces_callback(const char *iface, void *ctx)
+{
+    handle_ifconfig((event_handler *) ctx, iface);
+}
+
+static void handle_ifconfig_all(event_handler *self){
+    self->ctx->ifconfigurator->for_each_interface(self->ctx->ifconfigurator, list_interfaces_callback, self);
 }
 
 /*
@@ -244,7 +239,7 @@ static int handle_event(event_handler *self, const struct epoll_event *e){
     if (e->events & (EPOLLHUP | EPOLLERR | EPOLLRDHUP))
         return 1;
     else if (e->events & EPOLLIN) {
-        msg_len = receivebytes(e->data.fd, &buff);
+        msg_len = receivebytes(self->ctx->fd, &buff);
         while(msg_len > 2 && !isalnum(buff[msg_len-1])){
             buff[msg_len-1]='\0';
             --msg_len;
@@ -254,33 +249,37 @@ static int handle_event(event_handler *self, const struct epoll_event *e){
             if(strcmp("show",word)==0){
                 word = strtok(NULL," ");
                 if(!word)
-                    handle_ifconfig_all(e->data.fd);
+                    handle_ifconfig_all(self);
                 else{
-                    handle_ifconfig(word,e->data.fd);
-                    while((word = strtok(NULL," ")) != NULL)
-                        handle_ifconfig(word,e->data.fd);
+                    /* TODO: Deduplicate these lines */
+                    utils_trim_string(word);
+                    handle_ifconfig(self, word);
+                    while((word = strtok(NULL," ")) != NULL) {
+                        utils_trim_string(word);
+                        handle_ifconfig(self, word);
+                    }
                 }
             }
             else if(strcmp("setip",word)==0){
                 dev = strtok(NULL," ");
                 if(!dev)
-                    sendbytes("Write setip <interface> <a.b.c.d/mask>\n",e->data.fd);
+                    sendbytes("Write setip <interface> <a.b.c.d/mask>\n", self->ctx->fd);
                 else{
                     word = strtok(NULL," ");
-                    handle_ifconfig_setip(self,dev,e->data.fd,word);
+                    handle_ifconfig_setip(self,dev,word);
                 }
             }
             else if(strcmp("setmac",word)==0){
                 dev = strtok(NULL," ");
                 if(!dev)
-                    sendbytes("Write setmac <interface> <aa:bb:cc:dd:ee:ff>\n",e->data.fd);
+                    sendbytes("Write setmac <interface> <aa:bb:cc:dd:ee:ff>\n",self->ctx->fd);
                 else{
                     word = strtok(NULL," ");
-                    handle_ifconfig_setmac(self,dev,e->data.fd,word);
+                    handle_ifconfig_setmac(self,dev,word);
                 }
             }
             else
-                sendbytes("Unknown message\n",e->data.fd);
+                sendbytes("Unknown message\n",self->ctx->fd);
         } else
             return 1;
         if (buff){ free(buff); buff = NULL; }
@@ -296,7 +295,7 @@ static void destroy_client_eh(event_handler *self){
     free(self);
 }
 
-event_handler* create_client_eh(int cli_fd){
+event_handler* create_client_eh(int cli_fd, ifconfigurator *ifc){
     event_handler *s_eh = malloc(sizeof(event_handler));
     eh_ctx *ctx = malloc(sizeof(eh_ctx));
 
@@ -313,6 +312,7 @@ event_handler* create_client_eh(int cli_fd){
         return NULL;
     }
 
+    ctx->ifconfigurator = ifc;
     ctx->fd = cli_fd;
 
     s_eh->ctx = ctx;

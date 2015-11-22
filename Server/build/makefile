@@ -7,6 +7,10 @@
 # https://github.com/google/googletest.git
 # GTEST_PATH = /home/xubuntu/googletest
 
+# Set CMOCK_PATH to path to your cloned C-Mock repo
+# https://github.com/hjagodzinski/C-Mock.git
+# CMOCK_PATH = /home/xubuntu/C-Mock
+
 BUILDROOT_HOST_PATH = $(BUILDROOT_PATH)/output/host
 BUILDROOT_CC = $(BUILDROOT_HOST_PATH)/usr/bin/i686-linux-gcc
 
@@ -25,16 +29,22 @@ TARGET_CFLAGS =
 TARGET_LDFLAGS =
 
 # Flags for test builds (These will also have target flags)
-TEST_CXXFLAGS = -I$(GTEST_PATH)/googletest/include -I$(GTEST_PATH)/googlemock/include
-TEST_LDFLAGS = $(GTEST_PATH)/googletest/libgtest.a $(GTEST_PATH)/googlemock/libgmock.a -lpthread
+TEST_CXXFLAGS = -I$(GTEST_PATH)/googletest/include -I$(GTEST_PATH)/googlemock/include -I$(CMOCK_PATH)/include
+TEST_LDFLAGS = $(GTEST_PATH)/googletest/libgtest.a $(GTEST_PATH)/googlemock/libgmock.a -lpthread -ldl
 
 
 
 # Source files
-SOURCES_FOR_TESTING = client_eh.c eh_list.c reactor.c server_eh.c
+SOURCES_FOR_TESTING = client_eh.c eh_list.c reactor.c server_eh.c ifconfigurator.c utils.c
 SOURCES = main.c $(SOURCES_FOR_TESTING)
 
-TEST_SOURCES = main.cpp MockReactor.cpp server_eh_test.cpp
+TEST_SOURCES = \
+	client_eh_test.cpp \
+	main.cpp \
+	MockIfconfigurator.cpp \
+	MockReactor.cpp \
+	MockSyscalls.cpp \
+	server_eh_test.cpp
 
 
 # Target file names

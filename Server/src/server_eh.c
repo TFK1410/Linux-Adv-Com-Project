@@ -1,9 +1,11 @@
 #include "server_eh.h"
+#include "ifconfigurator.h"
 #include <stdio.h>
 
 struct eh_ctx {
     int fd;
     reactor *r;
+    ifconfigurator *ifconfigurator;
 };
 
 static int get_fd(event_handler *self){
@@ -23,7 +25,7 @@ static int handle_event(event_handler *self, const struct epoll_event *e){
         exit(1);
     }
 
-    cli_eh = create_client_eh(cli_fd);
+    cli_eh = create_client_eh(cli_fd, self->ctx->ifconfigurator);
     self->ctx->r->add_eh(self->ctx->r,cli_eh);
     return 0;
 }
@@ -33,7 +35,7 @@ static void destroy_server_eh(event_handler *self){
     free(self);
 }
 
-event_handler* create_server_eh(reactor *r, int port, int size){
+event_handler* create_server_eh(reactor *r, int port, ifconfigurator *ifc){
     event_handler *s_eh = malloc(sizeof(event_handler));
     eh_ctx *ctx = malloc(sizeof(eh_ctx));
 
@@ -67,6 +69,7 @@ event_handler* create_server_eh(reactor *r, int port, int size){
     }
 
     ctx->r=r;
+    ctx->ifconfigurator = ifc;
     s_eh->ctx = ctx;
     s_eh->get_fd = get_fd;
     s_eh->handle_event = handle_event;
