@@ -232,13 +232,13 @@ static int get_fd(event_handler *self){
     return self->ctx->fd;
 }
 
-static int handle_event(event_handler *self, const struct epoll_event *e){
+static int handle_event(event_handler *self, uint32_t events){
     size_t msg_len = -1;
     char *buff = 0, *word = 0, *dev = 0;
 
-    if (e->events & (EPOLLHUP | EPOLLERR | EPOLLRDHUP))
+    if (events & (EPOLLHUP | EPOLLERR | EPOLLRDHUP))
         return 1;
-    else if (e->events & EPOLLIN) {
+    else if (events & EPOLLIN) {
         msg_len = receivebytes(self->ctx->fd, &buff);
         while(msg_len > 2 && !isalnum(buff[msg_len-1])){
             buff[msg_len-1]='\0';

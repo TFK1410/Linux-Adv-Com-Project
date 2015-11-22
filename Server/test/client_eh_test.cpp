@@ -52,10 +52,7 @@ TEST(client_eh_test, test_show)
 
     // Test logic
     struct event_handler *eh = create_client_eh(9, mockIfconfigurator.getStruct());
-    struct epoll_event event = {
-        .events = EPOLLIN
-    };
-    eh->handle_event(eh, &event);
+    eh->handle_event(eh, EPOLLIN);
     EXPECT_FUNCTION_CALL(closeMock, (9)).WillOnce(Return(0));
     eh->destroy(eh);
 }
@@ -90,10 +87,7 @@ TEST(client_eh_test, test_show_two)
 
     // Test logic
     struct event_handler *eh = create_client_eh(9, mockIfconfigurator.getStruct());
-    struct epoll_event event = {
-        .events = EPOLLIN
-    };
-    eh->handle_event(eh, &event);
+    eh->handle_event(eh, EPOLLIN);
     EXPECT_FUNCTION_CALL(closeMock, (9)).WillOnce(Return(0));
     eh->destroy(eh);
 }
@@ -126,10 +120,7 @@ TEST(client_eh_test, test_set_ip)
 
     // Test logic
     struct event_handler *eh = create_client_eh(9, mockIfconfigurator.getStruct());
-    struct epoll_event event = {
-        .events = EPOLLIN
-    };
-    eh->handle_event(eh, &event);
+    eh->handle_event(eh, EPOLLIN);
     EXPECT_FUNCTION_CALL(closeMock, (9)).WillOnce(Return(0));
     eh->destroy(eh);
 }

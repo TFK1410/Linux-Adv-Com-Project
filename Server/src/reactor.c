@@ -48,7 +48,7 @@ static void event_loop(reactor *self){
 
         for(--i;i>-1;--i){
             event_handler *eh = self->ctx->ehl->get_by_fd(self->ctx->ehl, es[i].data.fd);
-            if(eh->handle_event(eh, &es[i]))
+            if(eh->handle_event(eh, es[i].events))
                 self->rm_eh(self, eh);
         }
     }

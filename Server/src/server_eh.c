@@ -12,7 +12,7 @@ static int get_fd(event_handler *self){
     return self->ctx->fd;
 }
 
-static int handle_event(event_handler *self, const struct epoll_event *e){
+static int handle_event(event_handler *self, uint32_t events) {
     event_handler *cli_eh = 0;
     int cli_fd = -1;
     struct sockaddr_in cli_addr;

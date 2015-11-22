@@ -14,7 +14,7 @@ typedef struct eh_ctx eh_ctx;
 typedef struct event_handler{
     eh_ctx *ctx;
     int (* get_fd) (struct event_handler *self);
-    int (* handle_event) (struct event_handler *self, const struct epoll_event *e);
+    int (* handle_event) (struct event_handler *self, uint32_t events);
     void (* destroy) (struct event_handler *self);
 }event_handler;
 
