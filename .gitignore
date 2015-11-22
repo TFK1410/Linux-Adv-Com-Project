@@ -31,6 +31,10 @@ Server/build/server_test
 *.x86_64
 *.hex
 
+# Coverage reports
+Server/build/hostcovobjs
+Server/build/coverage
+
 # Debug files
 *.dSYM/
 

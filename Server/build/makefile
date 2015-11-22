@@ -22,7 +22,7 @@ LDFLAGS = -lconfig
 
 # Flags for host builds
 HOST_CFLAGS =
-HOST_LDFLAGS =
+HOST_LDFLAGS = -lgcov
 
 # Flags for target builds
 TARGET_CFLAGS =
@@ -30,7 +30,7 @@ TARGET_LDFLAGS =
 
 # Flags for test builds (These will also have target flags)
 TEST_CXXFLAGS = -I$(GTEST_PATH)/googletest/include -I$(GTEST_PATH)/googlemock/include -I$(CMOCK_PATH)/include
-TEST_LDFLAGS = $(GTEST_PATH)/googletest/libgtest.a $(GTEST_PATH)/googlemock/libgmock.a -lpthread -ldl
+TEST_LDFLAGS = $(GTEST_PATH)/googletest/libgtest.a $(GTEST_PATH)/googlemock/libgmock.a -lpthread -ldl -lgcov
 
 
 
@@ -56,7 +56,7 @@ TEST_NAME = server_test
 # Object files
 TARGET_OBJECTS = $(SOURCES:%.c=targetobjs/%.o)
 HOST_OBJECTS = $(SOURCES:%.c=hostobjs/%.o)
-TEST_OBJECTS = $(SOURCES_FOR_TESTING:%.c=hostobjs/%.o) $(TEST_SOURCES:%.cpp=testobjs/%.o)
+TEST_OBJECTS = $(SOURCES_FOR_TESTING:%.c=hostcovobjs/%.o) $(TEST_SOURCES:%.cpp=testobjs/%.o)
 
 
 
@@ -84,14 +84,34 @@ hostobjs/%.o: ../src/%.c
 	mkdir -p hostobjs
 	$(CC) -c $(CFLAGS) $(HOST_CFLAGS) $< -o $@
 
+hostcovobjs/%.o: ../src/%.c
+	mkdir -p hostcovobjs
+	$(CC) -c $(CFLAGS) -fprofile-arcs -ftest-coverage $(HOST_CFLAGS) $< -o $@
+
 testobjs/%.o: ../test/%.cpp
 	mkdir -p testobjs
 	$(CXX) -c $(CFLAGS) $(HOST_CFLAGS) $(TEST_CXXFLAGS) $< -o $@
 
 
+# Testing
+test: $(TEST_NAME)
+	./$(TEST_NAME)
+
+coverage: test
+	mkdir -p coverage
+	lcov -b hostcovobjs -d ../.. -c -o coverage/coverage.info
+	lcov -r coverage/coverage.info /usr/\* tst/* -o coverage/coverage.info
+	genhtml coverage/coverage.info --output-directory coverage/html/ --ignore-errors source
+
+
 # Clean
 clean:
 	-rm -rf hostobjs
+	-rm -rf hostcovobjs
 	-rm -rf targetobjs
 	-rm -rf testobjs
+	-rm -rf coverage
 	-rm -f $(TARGET_NAME)
+
+
+.PHONY: test coverage clean
