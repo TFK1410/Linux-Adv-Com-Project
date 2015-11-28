@@ -7,6 +7,7 @@ struct eh_ctx {
     int fd;
     reactor *r;
     ifconfigurator *ifconfigurator;
+    event_handler* (*create_client_eh)(int cli_fd, ifconfigurator *ifc);
 };
 
 static int get_fd(event_handler *self){
@@ -16,17 +17,14 @@ static int get_fd(event_handler *self){
 static int handle_event(event_handler *self, uint32_t events) {
     event_handler *cli_eh = 0;
     int cli_fd = -1;
-    struct sockaddr_in cli_addr;
-    socklen_t cli_addr_len = sizeof(struct sockaddr_in);
-    memset(&cli_addr,0,cli_addr_len);
 
-    cli_fd = accept(self->ctx->fd, (struct sockaddr *) &cli_addr, &cli_addr_len);
+    cli_fd = accept(self->ctx->fd, NULL, NULL);
     if(cli_fd<0){
         fprintf(stderr, "Cannot accept client\n");
         exit(1);
     }
 
-    cli_eh = create_client_eh(cli_fd, self->ctx->ifconfigurator);
+    cli_eh = self->ctx->create_client_eh(cli_fd, self->ctx->ifconfigurator);
     self->ctx->r->add_eh(self->ctx->r,cli_eh);
     return 0;
 }
@@ -36,7 +34,7 @@ static void destroy_server_eh(event_handler *self){
     free(self);
 }
 
-event_handler* create_server_eh(reactor *r, int port, ifconfigurator *ifc){
+event_handler* create_server_eh(reactor *r, int port, ifconfigurator *ifc, event_handler* (*create_client_eh)(int cli_fd, ifconfigurator *ifc)){
     event_handler *s_eh = malloc(sizeof(event_handler));
     eh_ctx *ctx = malloc(sizeof(eh_ctx));
 
@@ -71,6 +69,8 @@ event_handler* create_server_eh(reactor *r, int port, ifconfigurator *ifc){
 
     ctx->r=r;
     ctx->ifconfigurator = ifc;
+    ctx->create_client_eh = create_client_eh;
+
     s_eh->ctx = ctx;
     s_eh->get_fd = get_fd;
     s_eh->handle_event = handle_event;
