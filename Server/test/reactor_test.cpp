@@ -5,6 +5,8 @@ extern "C" {
 #include "MockEventHandler.h"
 #include "MockSyscalls.h"
 
+#include <errno.h>
+
 #include <gtest/gtest.h>
 
 using namespace ::testing;
@@ -44,7 +46,10 @@ TEST(reactor_test, handle_then_rm_eh)
             Return(1)
         ))
         .WillOnce(
-            SetErrnoAndReturn(-EBADF, -1) // Fail in order to leave event loop 
+            SetErrnoAndReturn(-EAGAIN, -1) // Cause error that doesn't exit loop
+        )
+        .WillOnce(
+            SetErrnoAndReturn(-EBADF, -1) // Fail in order to leave event loop
         );
     EXPECT_CALL(eh, handle_event(EPOLLIN)).WillOnce(Return(false));
 

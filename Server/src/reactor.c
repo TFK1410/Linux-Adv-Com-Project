@@ -1,6 +1,7 @@
 #include "reactor.h"
 
 #include <stdlib.h>
+#include <errno.h>
 
 #define MAX_BATCHED_EVENTS 5
 
@@ -52,8 +53,11 @@ static void event_loop(reactor *self){
     for (;;) {
         i = epoll_wait(self->ctx->epoll_fd, events, self->ctx->size, -1);
         if (i < 0) {
+            if (errno == -EAGAIN) {
+                continue;
+            }
             fprintf(stderr, "Cannot wait for events\n");
-            return;
+            break;
         }
 
         for(--i;i>-1;--i){
