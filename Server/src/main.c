@@ -49,7 +49,7 @@ int main(int argc, const char *argv[])
     ////////////
     ifconfigurator *ifc = create_ifconfigurator();
     reactor *r = create_reactor(size);
-    event_handler *s_eh = create_server_eh(r,port,ifc);
+    event_handler *s_eh = create_server_eh(r,port,ifc, create_client_eh);
     if (s_eh != NULL){
         r->add_eh(r,s_eh);
         r->event_loop(r);
