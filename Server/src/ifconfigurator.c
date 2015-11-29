@@ -46,22 +46,22 @@ static bool ifconfigurator_get_if_config(struct ifconfigurator *self, const char
     out_config->flags = ifr.ifr_flags;
 
     // Get MAC
-    memset(&ifr.ifr_hwaddr, 0, sizeof(ifr.ifr_hwaddr)); // Clear, so failed ioctl won't lead to junk value
+    prepare_if_request(&ifr, iface); // Clear, so failed ioctl won't lead to junk value
     ioctl(self->ctx->fd, SIOCGIFHWADDR, &ifr);
     memcpy(&out_config->mac, &ifr.ifr_hwaddr, sizeof(out_config->mac));
 
     // Get IPv4
-    memset(&ifr.ifr_addr, 0, sizeof(ifr.ifr_addr));
+    prepare_if_request(&ifr, iface);
     ioctl(self->ctx->fd, SIOCGIFADDR, &ifr);
     memcpy(&out_config->ipv4, &ifr.ifr_addr, sizeof(out_config->ipv4));
 
     // Get broadcast addr
-    memset(&ifr.ifr_broadaddr, 0, sizeof(ifr.ifr_broadaddr));
+    prepare_if_request(&ifr, iface);
     ioctl(self->ctx->fd, SIOCGIFBRDADDR, &ifr);
     memcpy(&out_config->ipv4_broadcast, &ifr.ifr_broadaddr, sizeof(out_config->ipv4_broadcast));
 
     // Get net mask
-    memset(&ifr.ifr_netmask, 0, sizeof(ifr.ifr_netmask));
+    prepare_if_request(&ifr, iface);
     ioctl(self->ctx->fd, SIOCGIFNETMASK, &ifr);
     memcpy(&out_config->ipv4_netmask, &ifr.ifr_netmask, sizeof(out_config->ipv4_netmask));
 

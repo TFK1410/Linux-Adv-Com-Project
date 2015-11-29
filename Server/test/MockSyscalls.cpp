@@ -10,3 +10,6 @@ IMPLEMENT_FUNCTION_MOCK3(SocketSyscallMock, socket, int(int, int, int));
 IMPLEMENT_FUNCTION_MOCK3(BindSyscallMock, bind, int(int, const struct sockaddr *, socklen_t));
 IMPLEMENT_FUNCTION_MOCK2(ListenSyscallMock, listen, int(int, int));
 IMPLEMENT_FUNCTION_MOCK3(AcceptSyscallMock, accept, int(int, struct sockaddr *, socklen_t *));
+IMPLEMENT_FUNCTION_MOCK3(IoctlSyscallMock, ioctl, int(int, long, void *));
+IMPLEMENT_FUNCTION_MOCK2(FopenCallMock, fopen, FILE* (const char *, const char *));
+

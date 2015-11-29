@@ -40,6 +40,7 @@ SOURCES = main.c $(SOURCES_FOR_TESTING)
 
 TEST_SOURCES = \
 	client_eh_test.cpp \
+	ifconfigurator_test.cpp \
 	main.cpp \
 	MockEventHandler.cpp \
 	MockIfconfigurator.cpp \
