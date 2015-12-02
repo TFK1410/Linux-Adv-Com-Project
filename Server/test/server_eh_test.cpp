@@ -34,6 +34,7 @@ TEST(server_eh_test, test_lifecycle)
     BindSyscallMock bindMock;
     ListenSyscallMock listenMock;
     AcceptSyscallMock acceptMock;
+    CloseSyscallMock closeMock;
 
     // This unit shouldn't dereference these, cause SEGV if it tries
     ifconfigurator *dummyIfconfigurator = reinterpret_cast<ifconfigurator *>(100);
@@ -62,6 +63,8 @@ TEST(server_eh_test, test_lifecycle)
     server->handle_event(server, EPOLLIN);
 
     // Destroy server
+    EXPECT_FUNCTION_CALL(closeMock, (8))
+        .WillOnce(Return(0));
     server->destroy(server);
     gMockCreateClientEh = NULL;
 }

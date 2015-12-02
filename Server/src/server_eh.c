@@ -30,6 +30,7 @@ static int handle_event(event_handler *self, uint32_t events) {
 }
 
 static void destroy_server_eh(event_handler *self){
+    close(self->ctx->fd);
     free(self->ctx);
     free(self);
 }
