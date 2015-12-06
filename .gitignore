@@ -41,3 +41,6 @@ Server/build/coverage
 # GVIM files
 [._]*.s[a-w][a-z]
 [._]s[a-w][a-z]
+
+# Optimized python files
+*.pyc

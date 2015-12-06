@@ -20,14 +20,18 @@ TEST(client_eh_test, test_show)
 
     // Expected output
     const char *outcomingMessage =
-        "Interface name: if0\n"
-        "Status: DOWN\n"
-        "IPv4 Address: 0.0.0.0\n"
-        "Network Mask: 0.0.0.0\n"
-        "MAC: 00:00:00:00:00:00\n"
-        "IPV6: 0000:0000:0000:0000:0000:0000:0000:0000\n";
+        "IfInfo"
+        "=ifname=if0"
+        "=status=DOWN"
+        "=ipv4=0.0.0.0"
+        "=netmask=0.0.0.0"
+        "=mac=00:00:00:00:00:00"
+        "=ipv6=0000:0000:0000:0000:0000:0000:0000:0000"
+        "\n";
 
     int outcomingMessageLen = strlen(outcomingMessage);
+    const char *outcomingEndMessage = "EndOfList\n";
+    int outcomingEndMessageLen = strlen(outcomingEndMessage);
 
     // Interface configuration
     struct ifconfig config = {};
@@ -48,7 +52,8 @@ TEST(client_eh_test, test_show)
                 )
             );
         EXPECT_FUNCTION_CALL(writeMock, (9, _, _))
-            .WillOnce(MockedWrite(outcomingMessage, outcomingMessageLen));
+            .WillOnce(MockedWrite(outcomingMessage, outcomingMessageLen))
+            .WillOnce(MockedWrite(outcomingEndMessage, outcomingEndMessageLen));
     }
 
     // Test logic
@@ -65,9 +70,11 @@ TEST(client_eh_test, test_show_two)
     int incomingMessageLen = strlen(incomingMessage);
 
     // Expected output
-    const char *outcomingMessage1 = "No device with name if0 found!\n";
-    const char *outcomingMessage2 = "No device with name if1 found!\n";
+    const char *outcomingMessage1 = "Error=name=noiffound=ifname=if0\n";
+    const char *outcomingMessage2 = "Error=name=noiffound=ifname=if1\n";
     int outcomingMessageLen = strlen(outcomingMessage1);
+    const char *outcomingEndMessage = "EndOfList\n";
+    int outcomingEndMessageLen = strlen(outcomingEndMessage);
 
     // Mocks
     MockIfconfigurator mockIfconfigurator;
@@ -83,7 +90,8 @@ TEST(client_eh_test, test_show_two)
             .WillOnce(Return(false));
         EXPECT_FUNCTION_CALL(writeMock, (9, _, _))
             .WillOnce(MockedWrite(outcomingMessage1, outcomingMessageLen))
-            .WillOnce(MockedWrite(outcomingMessage2, outcomingMessageLen));
+            .WillOnce(MockedWrite(outcomingMessage2, outcomingMessageLen))
+            .WillOnce(MockedWrite(outcomingEndMessage, outcomingEndMessageLen));
     }
 
     // Test logic
@@ -100,7 +108,7 @@ TEST(client_eh_test, test_set_ip)
     int incomingMessageLen = strlen(incomingMessage);
 
     // Expected output
-    const char *outcomingMessage = "Successfully changed ip of the interface if0 to 1.2.3.4 and mask 248.0.0.0\n";
+    const char *outcomingMessage = "SetIpOkay\n";
     int outcomingMessageLen = strlen(outcomingMessage);
 
     // Mocks
@@ -133,7 +141,7 @@ TEST(client_eh_test, test_set_mac)
     int incomingMessageLen = strlen(incomingMessage);
 
     // Expected output
-    const char *outcomingMessage = "Successfully changed mac address of the interface if0 to 12:34:56:AB:cd:EF\n";
+    const char *outcomingMessage = "SetMacOkay\n";
     int outcomingMessageLen = strlen(outcomingMessage);
 
     // Mocks
