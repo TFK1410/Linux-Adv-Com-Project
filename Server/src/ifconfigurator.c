@@ -54,16 +54,13 @@ static int netlink_transfer(int sock_fd, struct ifconfig *ifc){
     memset(data_with_hdr, 0, NLMSG_SPACE(size));
 
     //RECEIVE
-    result = recv(sock_fd, ifc, NLMSG_SPACE(size), 0);
-    if (result <= 0) {
-        return result;
-    }
-    if (result < sizeof(struct nlmsghdr)) {
+    result = recv(sock_fd, data_with_hdr, NLMSG_SPACE(size), 0);
+    if (result <= 0 || result < NLMSG_SPACE(size)) {
         return 0;
     }
-    memmove(data_with_hdr, data_with_hdr + NLMSG_HDRLEN, result - NLMSG_HDRLEN);
-    ifc = (struct ifconfig *)data_with_hdr;
-    return result;
+    memmove(data_with_hdr, data_with_hdr + NLMSG_HDRLEN, result - NLMSG_HDRLEN); //sanity check
+    memcpy(ifc, data_with_hdr, sizeof(struct ifconfig));
+    return ifc->message_type != -1;
 }
 
 static void hello(int sock_fd)
@@ -91,7 +88,6 @@ static void ifconfigurator_for_each_interface(struct ifconfigurator *self, void 
 
 static void prepare_if_request(struct ifconfig *ifc, const char *iface) {
     memset(ifc, 0, sizeof(struct ifconfig));
-    ifc->mac.sa_family = AF_INET;
     strncpy(ifc->name, iface, IFNAMSIZ-1); // iface - interface name
 }
 
@@ -111,6 +107,8 @@ bool ifconfigurator_set_ip(struct ifconfigurator *self, const char *iface, struc
     struct ifconfig ifc;
     prepare_if_request(&ifc, iface);
     ifc.ipv4.sin_addr = *new_addr;
+    ifc.message_type = LACPM_SETIP;
+    ifc.ipv4.sin_family = AF_INET;
     return netlink_transfer(self->ctx->fd, &ifc) != 0;
 }
 
@@ -119,6 +117,8 @@ bool ifconfigurator_set_net_mask(struct ifconfigurator *self, const char *iface,
     struct ifconfig ifc;
     prepare_if_request(&ifc, iface);
     ifc.ipv4_netmask.sin_addr = *new_net_mask;
+    ifc.message_type = LACPM_SETMASK;
+    ifc.ipv4_netmask.sin_family = AF_INET;
     return netlink_transfer(self->ctx->fd, &ifc) != 0;
 }
 
@@ -127,6 +127,8 @@ bool ifconfigurator_set_mac(struct ifconfigurator *self, const char *iface, stru
     struct ifconfig ifc;
     prepare_if_request(&ifc, iface);
     ifc.mac = *new_mac;
+    ifc.message_type = LACPM_SETMAC;
+    ifc.mac.sa_family = AF_INET;
     return netlink_transfer(self->ctx->fd, &ifc) != 0;
 }
 

@@ -8,7 +8,6 @@ all:
 
 install:
 	make -C /lib/modules/$(KVERSION)/build M=$(CURDIR) modules_install
-	depmod -a 
 	modprobe lacpm
 
 uninstall:
