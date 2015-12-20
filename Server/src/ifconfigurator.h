@@ -2,16 +2,8 @@
 #define IFCONFIGURATOR_H
 
 #include <stdbool.h>
-#include <netinet/in.h>
-
-struct ifconfig {
-    int flags;
-    struct sockaddr mac;
-    struct sockaddr_in ipv4;
-    struct sockaddr_in ipv4_broadcast;
-    struct sockaddr_in ipv4_netmask;
-    char ipv6[16];
-};
+#include "../module/lacpm/lacpm_kernel_ifconfig.h"
+//#include <lacpm/lacpm_kernel_ifconfig.h>
 
 typedef struct ifconfigurator_ctx ifconfigurator_ctx;
 

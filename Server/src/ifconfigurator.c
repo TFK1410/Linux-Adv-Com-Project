@@ -5,6 +5,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <sys/ioctl.h>
+#include <linux/netlink.h>
 #include <net/if.h>
 #include <unistd.h>
 
@@ -13,107 +14,120 @@ struct ifconfigurator_ctx {
     int fd;
 };
 
+static bool bind_netlink(struct ifconfigurator_ctx *ctx){
+    struct sockaddr_nl src_addr = {};
+
+    memset(&src_addr, 0, sizeof(src_addr));
+    src_addr.nl_family = AF_NETLINK;
+    src_addr.nl_pid = getpid();
+
+    return bind(ctx->fd, (struct sockaddr *)&src_addr, sizeof(src_addr)) == 0;
+}
+
+unsigned char * set_nl_header(unsigned char * data, int size)
+{
+    struct nlmsghdr * nlh = (struct nlmsghdr *)data;  
+
+    memset(nlh, 0, NLMSG_SPACE(size));
+    nlh->nlmsg_len = NLMSG_SPACE(size);
+    nlh->nlmsg_pid = getpid();
+    return data + NLMSG_HDRLEN;
+}
+
+static int netlink_transfer(int sock_fd, struct ifconfig *ifc){
+    int result, size = sizeof(struct ifconfig);
+    unsigned char * data_with_hdr = malloc(NLMSG_SPACE(size));
+    unsigned char * data_point = set_nl_header(data_with_hdr, size);
+    struct sockaddr_nl addr;
+
+    //SEND
+    memset(data_with_hdr, 0, NLMSG_SPACE(size));
+    data_point = set_nl_header(data_with_hdr, size);
+
+    memset(&addr, 0, sizeof(addr));
+    addr.nl_family = AF_NETLINK;
+    addr.nl_pid = 0; /* For Linux Kernel */
+    addr.nl_groups = 0; /* unicast */
+
+    memcpy(data_point, ifc, size);
+    result = sendto(sock_fd, data_with_hdr, NLMSG_SPACE(size), 0, (struct sockaddr *)&addr, sizeof addr);
+    memset(data_with_hdr, 0, NLMSG_SPACE(size));
+
+    //RECEIVE
+    result = recv(sock_fd, ifc, NLMSG_SPACE(size), 0);
+    if (result <= 0) {
+        return result;
+    }
+    if (result < sizeof(struct nlmsghdr)) {
+        return 0;
+    }
+    memmove(data_with_hdr, data_with_hdr + NLMSG_HDRLEN, result - NLMSG_HDRLEN);
+    ifc = (struct ifconfig *)data_with_hdr;
+    return result;
+}
+
+static void hello(int sock_fd)
+{
+  struct ifconfig ifc;
+
+  ifc.message_type = LACPM_HELLO;
+
+  netlink_transfer(sock_fd, &ifc);
+}
+
 static void ifconfigurator_for_each_interface(struct ifconfigurator *self, void (*callback)(const char *iface, void *ctx), void *ctx)
 {
-    struct ifreq ifr = {};
+    struct ifconfig ifc = {};
     int i = 1;
-    ifr.ifr_addr.sa_family = AF_INET;
+    ifc.mac.sa_family = AF_INET;
     for (; ; ++i) {
-        ifr.ifr_ifindex = i;
-        if(ioctl(self->ctx->fd, SIOCGIFNAME, &ifr) == -1)
+        ifc.message_type = LACPM_GETNAME;
+        ifc.index = i;
+        if(!netlink_transfer(self->ctx->fd, &ifc))
             return;
-        callback(ifr.ifr_name, ctx);
+        callback(ifc.name, ctx);
     }
 }
 
-static void prepare_if_request(struct ifreq *ifr, const char *iface) {
-    memset(ifr, 0, sizeof(struct ifreq));
-    ifr->ifr_addr.sa_family = AF_INET;
-    strncpy(ifr->ifr_name, iface, IFNAMSIZ-1); // iface - interface name
+static void prepare_if_request(struct ifconfig *ifc, const char *iface) {
+    memset(ifc, 0, sizeof(struct ifconfig));
+    ifc->mac.sa_family = AF_INET;
+    strncpy(ifc->name, iface, IFNAMSIZ-1); // iface - interface name
 }
 
 static bool ifconfigurator_get_if_config(struct ifconfigurator *self, const char *iface, struct ifconfig *out_config)
 {
-    struct ifreq ifr;
-    FILE *proc = NULL;
-
-    prepare_if_request(&ifr, iface);
-
-    // Get flags
-    if(ioctl(self->ctx->fd, SIOCGIFFLAGS, &ifr) == -1){
-        return false;
-    }
-    out_config->flags = ifr.ifr_flags;
-
-    // Get MAC
-    prepare_if_request(&ifr, iface); // Clear, so failed ioctl won't lead to junk value
-    ioctl(self->ctx->fd, SIOCGIFHWADDR, &ifr);
-    memcpy(&out_config->mac, &ifr.ifr_hwaddr, sizeof(out_config->mac));
-
-    // Get IPv4
-    prepare_if_request(&ifr, iface);
-    ioctl(self->ctx->fd, SIOCGIFADDR, &ifr);
-    memcpy(&out_config->ipv4, &ifr.ifr_addr, sizeof(out_config->ipv4));
-
-    // Get broadcast addr
-    prepare_if_request(&ifr, iface);
-    ioctl(self->ctx->fd, SIOCGIFBRDADDR, &ifr);
-    memcpy(&out_config->ipv4_broadcast, &ifr.ifr_broadaddr, sizeof(out_config->ipv4_broadcast));
-
-    // Get net mask
-    prepare_if_request(&ifr, iface);
-    ioctl(self->ctx->fd, SIOCGIFNETMASK, &ifr);
-    memcpy(&out_config->ipv4_netmask, &ifr.ifr_netmask, sizeof(out_config->ipv4_netmask));
-
-    // Get IPv6
-    memset(out_config->ipv6, 0, sizeof(out_config->ipv6));
-    if((proc = fopen("/proc/net/if_inet6", "r")) == NULL) {
-        fprintf(stderr, "Could not open /proc/net/if_inet6\n");
-    } else {
-        char line[256] = "\0";
-        char *if_in_line;
-        while(fgets(line, 256, proc) != NULL) {
-            utils_trim_string(line);
-            if_in_line = strrchr(line, ' ');
-            if (if_in_line == NULL) {
-                continue;
-            }
-            if (strcmp(if_in_line + 1, iface) == 0) {
-                int i;
-                for (i = 0; i < 16; i++) {
-                    out_config->ipv6[i] = utils_uchar_from_hex(line[i * 2]) << 4 | utils_uchar_from_hex(line[i * 2 + 1]);
-                }
-                break;
-            }
-        }
-        fclose(proc);
+    prepare_if_request(out_config, iface);
+    out_config->message_type = LACPM_SHOW;
+    if(netlink_transfer(self->ctx->fd, out_config) && out_config){
+        return true;
     }
 
-    return true;
+    return false;
 }
 
 bool ifconfigurator_set_ip(struct ifconfigurator *self, const char *iface, struct in_addr *new_addr)
 {
-    struct ifreq ifr;
-    prepare_if_request(&ifr, iface);
-    ((struct sockaddr_in *) &ifr.ifr_addr)->sin_addr = *new_addr;
-    return ioctl(self->ctx->fd, SIOCSIFADDR, &ifr) == 0;
+    struct ifconfig ifc;
+    prepare_if_request(&ifc, iface);
+    ifc.ipv4.sin_addr = *new_addr;
+    return netlink_transfer(self->ctx->fd, &ifc) != 0;
 }
 
 bool ifconfigurator_set_net_mask(struct ifconfigurator *self, const char *iface, struct in_addr *new_net_mask)
 {
-    struct ifreq ifr;
-    prepare_if_request(&ifr, iface);
-    ((struct sockaddr_in *) &ifr.ifr_addr)->sin_addr = *new_net_mask;
-    return ioctl(self->ctx->fd, SIOCSIFNETMASK, &ifr) == 0;
+    struct ifconfig ifc;
+    prepare_if_request(&ifc, iface);
+    ifc.ipv4_netmask.sin_addr = *new_net_mask;
+    return netlink_transfer(self->ctx->fd, &ifc) != 0;
 }
 
 bool ifconfigurator_set_mac(struct ifconfigurator *self, const char *iface, struct sockaddr *new_mac)
 {
-    struct ifreq ifr;
-    prepare_if_request(&ifr, iface);
-    ifr.ifr_hwaddr = *new_mac;
-    return ioctl(self->ctx->fd, SIOCSIFHWADDR, &ifr) == 0;
+    struct ifconfig ifc;
+    prepare_if_request(&ifc, iface);
+    ifc.mac = *new_mac;
+    return netlink_transfer(self->ctx->fd, &ifc) != 0;
 }
 
 void ifconfigurator_destroy(struct ifconfigurator *self)
@@ -128,7 +142,22 @@ ifconfigurator *create_ifconfigurator()
     ifconfigurator *self = malloc(sizeof(ifconfigurator));
     ifconfigurator_ctx *ctx = malloc(sizeof(ifconfigurator_ctx));
 
-    ctx->fd = socket(AF_INET, SOCK_STREAM, 0);
+    ctx->fd = socket(PF_NETLINK, SOCK_RAW, NETLINK_USER);
+
+    if (ctx->fd < 0) {
+        free(ctx);
+        free(self);
+        printf("Socket creation failed\n");
+        return NULL;
+    }
+
+    if (!bind_netlink(ctx)){
+        free(ctx);
+        free(self);
+        printf("Socket binding failed\n");
+        return NULL;
+    }
+    hello(ctx->fd);
 
     self->ctx = ctx;
     self->for_each_interface = ifconfigurator_for_each_interface;

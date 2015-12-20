@@ -1,15 +1,15 @@
 # Paths for toolchain
 
 # Set BUILDROOT_PATH to path to your cloned buildroot repo
-# BUILDROOT_PATH = /home/xubuntu/buildroot
+BUILDROOT_PATH = /home/xubuntu/buildroot
 
 # Set GTEST_PATH to path to your cloned and built Google Test repo
 # https://github.com/google/googletest.git
-# GTEST_PATH = /home/xubuntu/googletest
+GTEST_PATH = /home/xubuntu/googletest
 
 # Set CMOCK_PATH to path to your cloned C-Mock repo
 # https://github.com/hjagodzinski/C-Mock.git
-# CMOCK_PATH = /home/xubuntu/C-Mock
+CMOCK_PATH = /home/xubuntu/C-Mock
 
 BUILDROOT_HOST_PATH = $(BUILDROOT_PATH)/output/host
 BUILDROOT_CC = $(BUILDROOT_HOST_PATH)/usr/bin/i686-linux-gcc
@@ -17,7 +17,7 @@ BUILDROOT_CC = $(BUILDROOT_HOST_PATH)/usr/bin/i686-linux-gcc
 
 
 # Flags common for host and target builds
-CFLAGS = -Wall -g
+CFLAGS = -Wall -g -I../module/
 LDFLAGS = -lconfig
 
 # Flags for host builds
@@ -30,7 +30,7 @@ TARGET_LDFLAGS =
 
 # Flags for test builds (These will also have target flags)
 TEST_CXXFLAGS = -I$(GTEST_PATH)/googletest/include -I$(GTEST_PATH)/googlemock/include -I$(CMOCK_PATH)/include
-TEST_LDFLAGS = $(GTEST_PATH)/googletest/libgtest.a $(GTEST_PATH)/googlemock/libgmock.a -lpthread -ldl -lgcov
+TEST_LDFLAGS = $(GTEST_PATH)/googletest/lib/.libs/libgtest.a $(GTEST_PATH)/googlemock/lib/.libs/libgmock.a -lpthread -ldl -lgcov
 
 
 
@@ -60,8 +60,6 @@ TEST_NAME = server_test
 TARGET_OBJECTS = $(SOURCES:%.c=targetobjs/%.o)
 HOST_OBJECTS = $(SOURCES:%.c=hostobjs/%.o)
 TEST_OBJECTS = $(SOURCES_FOR_TESTING:%.c=hostcovobjs/%.o) $(TEST_SOURCES:%.cpp=testobjs/%.o)
-
-
 
 # Default target
 all: $(TARGET_NAME) $(HOST_NAME) $(TEST_NAME)
@@ -106,7 +104,6 @@ coverage: test
 	lcov -r coverage/coverage.info /usr/\* tst/* -o coverage/coverage.info
 	genhtml coverage/coverage.info --output-directory coverage/html/ --ignore-errors source
 
-
 # Clean
 clean:
 	-rm -rf hostobjs
@@ -115,6 +112,7 @@ clean:
 	-rm -rf testobjs
 	-rm -rf coverage
 	-rm -f $(TARGET_NAME)
+	make -C ../module/ clean
 
 
 .PHONY: test coverage clean
