@@ -2,7 +2,7 @@
 #define IFCONFIGURATOR_H
 
 #include <stdbool.h>
-#include "../module/lacpm/lacpm_kernel_ifconfig.h"
+#include "../../Module/lacpm/lacpm_kernel_ifconfig.h"
 //#include <lacpm/lacpm_kernel_ifconfig.h>
 
 typedef struct ifconfigurator_ctx ifconfigurator_ctx;

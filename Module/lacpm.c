@@ -105,6 +105,7 @@ out:
     if (nlmsg_unicast(netlink_socket, skb_out, lacpm_server_pid) != 0) {
         lacpm_debug(KERN_DEBUG "Failed to send message");
     }
+    dev_put(dev);
     //kfree_skb(skb_out); //who frees the memory?
 }
 
@@ -159,6 +160,7 @@ static void lacpm_ifconfig(struct ifconfig * ifconfig, const struct net_device *
         memcpy(ifconfig->mac.sa_data, dev->dev_addr, sizeof(ifconfig->mac.sa_data));
     ifconfig->mac.sa_family = dev->type;
 
+    rcu_read_lock();
     in_dev = rcu_dereference(dev->ip_ptr);
     ifap = in_dev->ifa_list;
 
@@ -188,6 +190,7 @@ static void lacpm_ifconfig(struct ifconfig * ifconfig, const struct net_device *
         memset(ifconfig->ipv6, 0, 16);
 
     ifconfig->message_type = 0;
+    rcu_read_unlock();
 }
 
 /**
@@ -211,6 +214,7 @@ static void lacpm_setip(struct ifconfig *ifconfig, struct net_device *dev){
     struct in_device *in_dev;
     struct in_ifaddr *ifap;
 
+    rcu_read_lock();
     in_dev = rcu_dereference(dev->ip_ptr);
     ifap = in_dev->ifa_list;
 
@@ -218,6 +222,7 @@ static void lacpm_setip(struct ifconfig *ifconfig, struct net_device *dev){
         memcpy(&ifap->ifa_local, &ifconfig->ipv4.sin_addr, sizeof(ifap->ifa_local));
         memcpy(&ifap->ifa_address, &ifconfig->ipv4.sin_addr, sizeof(ifap->ifa_address));
     }
+    rcu_read_unlock();
 }
 
 /**
@@ -229,12 +234,14 @@ static void lacpm_setmask(struct ifconfig *ifconfig, struct net_device *dev){
     struct in_device *in_dev;
     struct in_ifaddr *ifap;
 
+    rcu_read_lock();
     in_dev = rcu_dereference(dev->ip_ptr);
     ifap = in_dev->ifa_list;
 
     if(ifconfig->ipv4_netmask.sin_family == AF_INET){
         memcpy(&ifap->ifa_mask, &ifconfig->ipv4_netmask.sin_addr, sizeof(ifap->ifa_mask));
     }
+    rcu_read_unlock();
 }
 
 /**
@@ -246,13 +253,13 @@ static void lacpm_getname(struct ifconfig *ifconfig){
 
     rcu_read_lock();
     dev = dev_get_by_index_rcu(&init_net, ifconfig->index);
-    rcu_read_unlock();
 
     if (dev){
         strncpy(ifconfig->name, dev->name, 16);
         return;
     }
     ifconfig->message_type = -1;
+    rcu_read_unlock();
 }
 
 /**

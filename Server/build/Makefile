@@ -112,7 +112,7 @@ clean:
 	-rm -rf testobjs
 	-rm -rf coverage
 	-rm -f $(TARGET_NAME)
-	make -C ../module/ clean
+	make -C ../../Module/ clean
 
 
 .PHONY: test coverage clean
