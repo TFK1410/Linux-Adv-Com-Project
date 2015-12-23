@@ -105,7 +105,9 @@ out:
     if (nlmsg_unicast(netlink_socket, skb_out, lacpm_server_pid) != 0) {
         lacpm_debug(KERN_DEBUG "Failed to send message");
     }
-    dev_put(dev);
+    if (dev != NULL) {
+        dev_put(dev);
+    }
     //kfree_skb(skb_out); //who frees the memory?
 }
 
@@ -164,30 +166,37 @@ static void lacpm_ifconfig(struct ifconfig * ifconfig, const struct net_device *
     in_dev = rcu_dereference(dev->ip_ptr);
     ifap = in_dev->ifa_list;
 
-    //IPV4
-    sin = (struct sockaddr_in *)&ifconfig->ipv4;
-    sin->sin_family = AF_INET;
-    sin->sin_port = 0;
-    sin->sin_addr.s_addr = ifap->ifa_local;
+    if (ifap != NULL) {
+        //IPV4
+        sin = (struct sockaddr_in *)&ifconfig->ipv4;
+        sin->sin_family = AF_INET;
+        sin->sin_port = 0;
+        sin->sin_addr.s_addr = ifap->ifa_local;
 
-    //NETMASK
-    sin = (struct sockaddr_in *)&ifconfig->ipv4_netmask;
-    sin->sin_family = AF_INET;
-    sin->sin_addr.s_addr = ifap->ifa_mask;
+        //NETMASK
+        sin = (struct sockaddr_in *)&ifconfig->ipv4_netmask;
+        sin->sin_family = AF_INET;
+        sin->sin_addr.s_addr = ifap->ifa_mask;
 
-    //BROADCAST
-    sin = (struct sockaddr_in *)&ifconfig->ipv4_broadcast;
-    sin->sin_family = AF_INET;
-    sin->sin_addr.s_addr = ifap->ifa_broadcast;
+        //BROADCAST
+        sin = (struct sockaddr_in *)&ifconfig->ipv4_broadcast;
+        sin->sin_family = AF_INET;
+        sin->sin_addr.s_addr = ifap->ifa_broadcast;
+    } else {
+        memset(&ifconfig->ipv4, 0, sizeof(ifconfig->ipv4));
+        memset(&ifconfig->ipv4_netmask, 0, sizeof(ifconfig->ipv4_netmask));
+        memset(&ifconfig->ipv4_broadcast, 0, sizeof(ifconfig->ipv4_broadcast));
+    }
 
     //IPV6
     in6_dev = rcu_dereference(dev->ip6_ptr);
-    if6ap = list_first_entry_or_null(&in6_dev->addr_list, struct inet6_ifaddr, if_list);    //Using kernel list mechanism
-    if (if6ap) {
+    if (in6_dev != NULL && !list_empty(&in6_dev->addr_list)) {
+        if6ap = list_first_entry(&in6_dev->addr_list, struct inet6_ifaddr, if_list);    //Using kernel list mechanism
         if6addr = &if6ap->addr;
         memcpy(ifconfig->ipv6, &if6addr->in6_u, 16);
-    } else
+    } else {
         memset(ifconfig->ipv6, 0, 16);
+    }
 
     ifconfig->message_type = 0;
     rcu_read_unlock();
