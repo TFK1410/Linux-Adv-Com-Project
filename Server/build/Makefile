@@ -1,15 +1,15 @@
 # Paths for toolchain
 
 # Set BUILDROOT_PATH to path to your cloned buildroot repo
-BUILDROOT_PATH = /home/xubuntu/buildroot
+# BUILDROOT_PATH = /home/xubuntu/buildroot
 
 # Set GTEST_PATH to path to your cloned and built Google Test repo
 # https://github.com/google/googletest.git
-GTEST_PATH = /home/xubuntu/googletest
+# GTEST_PATH = /home/xubuntu/googletest
 
 # Set CMOCK_PATH to path to your cloned C-Mock repo
 # https://github.com/hjagodzinski/C-Mock.git
-CMOCK_PATH = /home/xubuntu/C-Mock
+# CMOCK_PATH = /home/xubuntu/C-Mock
 
 BUILDROOT_HOST_PATH = $(BUILDROOT_PATH)/output/host
 BUILDROOT_CC = $(BUILDROOT_HOST_PATH)/usr/bin/i686-linux-gcc
