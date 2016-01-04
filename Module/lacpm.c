@@ -17,10 +17,8 @@ MODULE_LICENSE("GPL");
 
 
 static struct sock * netlink_socket = NULL;
-static int lacpm_server_pid = 0;
 
 static void receive_netlink_message(struct sk_buff * skb);
-static void lacpm_hello(int pid);
 static void lacpm_ifconfig(struct ifconfig *ifconfig, const struct net_device *dev);
 static void lacpm_setmac(struct ifconfig *ifconfig, struct net_device *dev);
 static void lacpm_setip(struct ifconfig *ifconfig, struct net_device *dev);
@@ -39,29 +37,20 @@ static struct netlink_kernel_cfg netlink_kernel_cfg = {
  * Interprets message received through NetLink. Performs action
  * specified by ctl->type
  */
-static void process_message(struct ifconfig * ifconfig, const struct nlmsghdr * header) {
+static void process_message(struct ifconfig * ifconfig, const struct nlmsghdr * header, struct sk_buff *skb) {
     struct net_device * dev = NULL;
     struct sk_buff * skb_out = NULL;
-    struct nlmsghdr * newheader = NULL;
 
-    skb_out = nlmsg_new(sizeof(struct ifconfig), GFP_KERNEL);
+    skb_out = skb_clone(skb, GFP_KERNEL);
     if (!skb_out) {
-        printk(KERN_ERR "Failed to allocate new skb\n");
-        return;
+        printk(KERN_ERR "Failed to clone skb\n");   //if failed it cannot send original message back and blocks the server
+        return;                                     //maybe new function to send new empty struct in case of error
     }
-
-    newheader = nlmsg_put(skb_out, 0, 0, 0, sizeof(struct ifconfig), 0);
 
     NETLINK_CB(skb_out).portid = 0;
     NETLINK_CB(skb_out).dst_group = 0;
 
-    if (!lacpm_server_pid && ifconfig->message_type != LACPM_HELLO) {
-        ifconfig->message_type = -1;
-        lacpm_debug(KERN_DEBUG "No lacpm_server attached to module");
-        goto out;
-    }
-
-    if (ifconfig->message_type != LACPM_GETNAME && ifconfig->message_type != LACPM_HELLO){
+    if (ifconfig->message_type != LACPM_GETNAME){
         dev = dev_get_by_name(&init_net, ifconfig->name);
         if (!dev) {
             ifconfig->message_type = -1;
@@ -71,10 +60,6 @@ static void process_message(struct ifconfig * ifconfig, const struct nlmsghdr * 
     }
 
     switch (ifconfig->message_type) {
-        case LACPM_HELLO:
-            //Handshake with server
-            lacpm_hello(header->nlmsg_pid);
-            break;
         case LACPM_SHOW:
             //Get interface information into structure
             lacpm_ifconfig(ifconfig, dev);
@@ -101,8 +86,7 @@ static void process_message(struct ifconfig * ifconfig, const struct nlmsghdr * 
     }
 
 out:
-    memcpy(nlmsg_data(newheader), ifconfig, sizeof(struct ifconfig));
-    if (nlmsg_unicast(netlink_socket, skb_out, lacpm_server_pid) != 0) {
+    if (nlmsg_unicast(netlink_socket, skb_out, header->nlmsg_pid) != 0) {
         lacpm_debug(KERN_DEBUG "Failed to send message");
     }
     if (dev != NULL) {
@@ -125,15 +109,7 @@ static void receive_netlink_message(struct sk_buff * skb) {
     header = (struct nlmsghdr *) skb->data;
     ifconfig = nlmsg_data(header);
 
-    process_message(ifconfig, header);
-}
-
-/**
- * lacpm_hello - Called when user space server wants to connect to the module
- */
-static void lacpm_hello(int pid) {
-    lacpm_server_pid = pid;
-    lacpm_debug("hello %d", pid);
+    process_message(ifconfig, header, skb);
 }
 
 /**

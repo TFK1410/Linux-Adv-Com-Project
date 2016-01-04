@@ -63,15 +63,6 @@ static int netlink_transfer(int sock_fd, struct ifconfig *ifc){
     return ifc->message_type != -1;
 }
 
-static void hello(int sock_fd)
-{
-  struct ifconfig ifc;
-
-  ifc.message_type = LACPM_HELLO;
-
-  netlink_transfer(sock_fd, &ifc);
-}
-
 static void ifconfigurator_for_each_interface(struct ifconfigurator *self, void (*callback)(const char *iface, void *ctx), void *ctx)
 {
     struct ifconfig ifc = {};
@@ -159,7 +150,6 @@ ifconfigurator *create_ifconfigurator()
         printf("Socket binding failed\n");
         return NULL;
     }
-    hello(ctx->fd);
 
     self->ctx = ctx;
     self->for_each_interface = ifconfigurator_for_each_interface;

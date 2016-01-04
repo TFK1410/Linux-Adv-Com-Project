@@ -9,12 +9,11 @@
 
 #define NETLINK_USER 31
 #define LACPM_ERROR -1
-#define LACPM_HELLO 0
-#define LACPM_SHOW 1
-#define LACPM_SETMAC 2
-#define LACPM_SETIP 3
-#define LACPM_SETMASK 4
-#define LACPM_GETNAME 5
+#define LACPM_SHOW 0
+#define LACPM_SETMAC 1
+#define LACPM_SETIP 2
+#define LACPM_SETMASK 3
+#define LACPM_GETNAME 4
 
 
 struct ifconfig {
