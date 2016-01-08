@@ -22,7 +22,10 @@ class SConnection(object):
         self.__socket.send(message + "\n")
 
     def __recvMessage(self):
-        chunks = self.__socketFile.readline().strip().split("=")
+        line = self.__socketFile.readline()
+        if not line:
+            raise ServerException("Unexpected EOF reached when reading from server")
+        chunks = line.strip().split("=")
         messageType = chunks[0]
         messageData = dict(zip(chunks[1::2], chunks[2::2]))
         return (messageType, messageData)

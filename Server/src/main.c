@@ -2,6 +2,7 @@
 #include <libconfig.h>
 #include "server_eh.h"
 #include "ifconfigurator.h"
+#include "signal.h"
 
 static int load_cfg(char* cfg_name, int* port, int* size){
     config_t cfg;
@@ -45,6 +46,14 @@ int main(int argc, const char *argv[])
     if(load_cfg("server.conf", &port, &size)){
         fprintf(stderr, "Error when reading config file. Shutting down now.\n");
         return 1;
+    }
+
+    // Ignore SIGPIPE
+    {
+        struct sigaction action = {
+            .sa_handler = SIG_IGN
+        };
+        sigaction(SIGPIPE, &action, NULL);
     }
     ////////////
     ifconfigurator *ifc = create_ifconfigurator();
