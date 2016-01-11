@@ -26,7 +26,7 @@ static bool bind_netlink(struct ifconfigurator_ctx *ctx){
 
 unsigned char * set_nl_header(unsigned char * data, int size)
 {
-    struct nlmsghdr * nlh = (struct nlmsghdr *)data;  
+    struct nlmsghdr * nlh = (struct nlmsghdr *)data;
 
     memset(nlh, 0, NLMSG_SPACE(size));
     nlh->nlmsg_len = NLMSG_SPACE(size);
@@ -60,6 +60,7 @@ static int netlink_transfer(int sock_fd, struct ifconfig *ifc){
     }
     memmove(data_with_hdr, data_with_hdr + NLMSG_HDRLEN, result - NLMSG_HDRLEN); //sanity check
     memcpy(ifc, data_with_hdr, sizeof(struct ifconfig));
+    free(data_with_hdr);
     return ifc->message_type != -1;
 }
 
