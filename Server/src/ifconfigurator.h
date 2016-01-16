@@ -17,6 +17,7 @@ typedef struct ifconfigurator {
     void (* destroy)(struct ifconfigurator *self);
 } ifconfigurator;
 
-ifconfigurator *create_ifconfigurator();
+ifconfigurator *create_netlink_ifconfigurator();
+ifconfigurator *create_ioctl_ifconfigurator();
 
 #endif

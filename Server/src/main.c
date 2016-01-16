@@ -55,8 +55,17 @@ int main(int argc, const char *argv[])
         };
         sigaction(SIGPIPE, &action, NULL);
     }
-    ////////////
-    ifconfigurator *ifc = create_ifconfigurator();
+
+    // Create ifconfigurator
+    ifconfigurator *ifc = create_netlink_ifconfigurator();
+    if (ifc != NULL) {
+        printf("Using our driver for configuring interfaces\n");
+    } else {
+        printf("Falling back to ioctl for configuring interfaces\n");
+        ifc = create_ioctl_ifconfigurator();
+    }
+
+
     reactor *r = create_reactor(size);
     event_handler *s_eh = create_server_eh(r,port,ifc, create_client_eh);
     if (s_eh != NULL){

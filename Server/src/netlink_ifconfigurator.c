@@ -24,7 +24,7 @@ static bool bind_netlink(struct ifconfigurator_ctx *ctx){
     return bind(ctx->fd, (struct sockaddr *)&src_addr, sizeof(src_addr)) == 0;
 }
 
-unsigned char * set_nl_header(unsigned char * data, int size)
+static unsigned char * set_nl_header(unsigned char * data, int size)
 {
     struct nlmsghdr * nlh = (struct nlmsghdr *)data;
 
@@ -94,7 +94,7 @@ static bool ifconfigurator_get_if_config(struct ifconfigurator *self, const char
     return false;
 }
 
-bool ifconfigurator_set_ip(struct ifconfigurator *self, const char *iface, struct in_addr *new_addr)
+static bool ifconfigurator_set_ip(struct ifconfigurator *self, const char *iface, struct in_addr *new_addr)
 {
     struct ifconfig ifc;
     prepare_if_request(&ifc, iface);
@@ -104,7 +104,7 @@ bool ifconfigurator_set_ip(struct ifconfigurator *self, const char *iface, struc
     return netlink_transfer(self->ctx->fd, &ifc) != 0;
 }
 
-bool ifconfigurator_set_net_mask(struct ifconfigurator *self, const char *iface, struct in_addr *new_net_mask)
+static bool ifconfigurator_set_net_mask(struct ifconfigurator *self, const char *iface, struct in_addr *new_net_mask)
 {
     struct ifconfig ifc;
     prepare_if_request(&ifc, iface);
@@ -114,7 +114,7 @@ bool ifconfigurator_set_net_mask(struct ifconfigurator *self, const char *iface,
     return netlink_transfer(self->ctx->fd, &ifc) != 0;
 }
 
-bool ifconfigurator_set_mac(struct ifconfigurator *self, const char *iface, struct sockaddr *new_mac)
+static bool ifconfigurator_set_mac(struct ifconfigurator *self, const char *iface, struct sockaddr *new_mac)
 {
     struct ifconfig ifc;
     prepare_if_request(&ifc, iface);
@@ -124,14 +124,14 @@ bool ifconfigurator_set_mac(struct ifconfigurator *self, const char *iface, stru
     return netlink_transfer(self->ctx->fd, &ifc) != 0;
 }
 
-void ifconfigurator_destroy(struct ifconfigurator *self)
+static void ifconfigurator_destroy(struct ifconfigurator *self)
 {
     close(self->ctx->fd);
     free(self->ctx);
     free(self);
 }
 
-ifconfigurator *create_ifconfigurator()
+ifconfigurator *create_netlink_ifconfigurator()
 {
     ifconfigurator *self = malloc(sizeof(ifconfigurator));
     ifconfigurator_ctx *ctx = malloc(sizeof(ifconfigurator_ctx));
@@ -141,14 +141,14 @@ ifconfigurator *create_ifconfigurator()
     if (ctx->fd < 0) {
         free(ctx);
         free(self);
-        printf("Socket creation failed\n");
+        printf("Netlink socket creation failed\n");
         return NULL;
     }
 
     if (!bind_netlink(ctx)){
         free(ctx);
         free(self);
-        printf("Socket binding failed\n");
+        printf("Netlink socket binding failed\n");
         return NULL;
     }
 

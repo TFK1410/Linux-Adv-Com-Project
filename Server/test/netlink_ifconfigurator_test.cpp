@@ -17,7 +17,7 @@ static const struct ifconfig *getIfconfigFromMessage(const void *buf)
     return (struct ifconfig *)((char *)buf + NLMSG_HDRLEN);
 }
 
-class ifconfigurator_test : public ::testing::Test
+class netlink_ifconfigurator_test : public ::testing::Test
 {
 protected:
     static const int netlink_fd = 6;
@@ -32,7 +32,7 @@ protected:
             .WillOnce(Return(netlink_fd));
         EXPECT_FUNCTION_CALL(bindSyscallMock, (netlink_fd, _, _))
             .WillOnce(Return(0));
-        ifc = create_ifconfigurator();
+        ifc = create_netlink_ifconfigurator();
      }
 
     virtual void TearDown()
@@ -56,7 +56,7 @@ MATCHER_P(SockAddrMatches, expectedAddr, "")
     return memcmp(&arg, expectedAddr, sizeof(sockaddr_in)) == 0;
 }
 
-TEST_F(ifconfigurator_test, test_get_if_config)
+TEST_F(netlink_ifconfigurator_test, test_get_if_config)
 {
     SendToSyscallMock sendToSyscallMock;
     RecvSyscallMock recvSyscallMock;
@@ -98,7 +98,7 @@ TEST_F(ifconfigurator_test, test_get_if_config)
     EXPECT_EQ(0, memcmp(&out_config, responseData, sizeof(struct ifconfig)));
 }
 
-TEST_F(ifconfigurator_test, test_set_ip)
+TEST_F(netlink_ifconfigurator_test, test_set_ip)
 {
     SendToSyscallMock sendToSyscallMock;
     RecvSyscallMock recvSyscallMock;
@@ -139,7 +139,7 @@ TEST_F(ifconfigurator_test, test_set_ip)
     EXPECT_EQ(true, ifc->set_ip(ifc, "if0", &newAddr));
 }
 
-TEST_F(ifconfigurator_test, test_set_netmask)
+TEST_F(netlink_ifconfigurator_test, test_set_netmask)
 {
     SendToSyscallMock sendToSyscallMock;
     RecvSyscallMock recvSyscallMock;
@@ -180,7 +180,7 @@ TEST_F(ifconfigurator_test, test_set_netmask)
     EXPECT_EQ(true, ifc->set_net_mask(ifc, "if0", &newAddr));
 }
 
-TEST_F(ifconfigurator_test, test_set_mac)
+TEST_F(netlink_ifconfigurator_test, test_set_mac)
 {
     SendToSyscallMock sendToSyscallMock;
     RecvSyscallMock recvSyscallMock;

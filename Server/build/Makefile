@@ -35,17 +35,18 @@ TEST_LDFLAGS = $(GTEST_PATH)/googletest/lib/.libs/libgtest.a $(GTEST_PATH)/googl
 
 
 # Source files
-SOURCES_FOR_TESTING = client_eh.c reactor.c server_eh.c ifconfigurator.c utils.c
+SOURCES_FOR_TESTING = client_eh.c reactor.c server_eh.c ioctl_ifconfigurator.c netlink_ifconfigurator.c utils.c
 SOURCES = main.c $(SOURCES_FOR_TESTING)
 
 TEST_SOURCES = \
 	client_eh_test.cpp \
-	ifconfigurator_test.cpp \
+	ioctl_ifconfigurator_test.cpp \
 	main.cpp \
 	MockEventHandler.cpp \
 	MockIfconfigurator.cpp \
 	MockReactor.cpp \
 	MockSyscalls.cpp \
+	netlink_ifconfigurator_test.cpp \
 	reactor_test.cpp \
 	server_eh_test.cpp
 
