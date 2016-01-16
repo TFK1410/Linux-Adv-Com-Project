@@ -1,21 +1,16 @@
 # Kernel module variables
 obj-m := lacpm.o
 ccflags-y += -g -I$(src)
-KVERSION = $(shell uname -r)
 
-all:
-	make -C /lib/modules/$(KVERSION)/build M=$(CURDIR) modules
+HOST_KERNEL_BUILD_DIR = /lib/modules/$(shell uname -r)/build
+TARGET_KERNEL_BUILD_DIR = $(BUILDROOT_PATH)/output/build/linux-4.3
 
-install:
-	make -C /lib/modules/$(KVERSION)/build M=$(CURDIR) modules_install
-	modprobe lacpm
+host:
+	make -C $(HOST_KERNEL_BUILD_DIR) M=$(CURDIR) modules
 
-uninstall:
-	rmmod lacpm
-
-install-headers:
-	cp -rf ../module/lacpm /usr/include/
+target:
+	make -C $(TARGET_KERNEL_BUILD_DIR) M=$(CURDIR) modules
 
 clean:
-	make -C /lib/modules/$(KVERSION)/build M=$(CURDIR) clean
+	make -C $(HOST_KERNEL_BUILD_DIR) M=$(CURDIR) clean
 	rm -rf lacpm.o .lacpm.o.cmd
