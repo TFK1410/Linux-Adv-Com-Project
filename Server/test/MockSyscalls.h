@@ -57,4 +57,7 @@ ACTION_TEMPLATE(MemCpyArg, HAS_1_TEMPLATE_PARAMS(int, k), AND_2_VALUE_PARAMS(new
     memcpy(::testing::get<k>(args), newData, len);
 }
 
+DECLARE_FUNCTION_MOCK6(SendToSyscallMock, sendto, ssize_t(int, const void *, size_t, int, const struct sockaddr *, socklen_t));
+DECLARE_FUNCTION_MOCK4(RecvSyscallMock, recv, ssize_t(int, void *, size_t, int));
+
 #endif

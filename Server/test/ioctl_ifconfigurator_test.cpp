@@ -15,7 +15,7 @@ static FILE *fixtureFopen(const char *, const char *) {
     return FopenCallMock::real("../test/if_inet6_fixture.txt", "r");
 }
 
-TEST(ifconfigurator_test, test_get_if_config)
+TEST(ioctl_ifconfigurator_test, test_get_if_config)
 {
     SocketSyscallMock socketSyscallMock;
     IoctlSyscallMock ioctlSyscallMock;
@@ -25,7 +25,7 @@ TEST(ifconfigurator_test, test_get_if_config)
     // Create ifconfigurator
     EXPECT_FUNCTION_CALL(socketSyscallMock, (AF_INET, _, _))
         .WillOnce(Return(6));
-    ifconfigurator *ifc = create_ifconfigurator();
+    ifconfigurator *ifc = create_ioctl_ifconfigurator();
 
     // Request we expect
     struct ifreq expectedRequest = {};
@@ -88,7 +88,7 @@ TEST(ifconfigurator_test, test_get_if_config)
     ifc->destroy(ifc);
 }
 
-TEST(ifconfigurator_test, test_set_ip)
+TEST(ioctl_ifconfigurator_test, test_set_ip)
 {
     SocketSyscallMock socketSyscallMock;
     IoctlSyscallMock ioctlSyscallMock;
@@ -97,7 +97,7 @@ TEST(ifconfigurator_test, test_set_ip)
     // Create ifconfigurator
     EXPECT_FUNCTION_CALL(socketSyscallMock, (AF_INET, _, _))
         .WillOnce(Return(6));
-    ifconfigurator *ifc = create_ifconfigurator();
+    ifconfigurator *ifc = create_ioctl_ifconfigurator();
 
     // Request we expect
     struct in_addr newAddr = {};
@@ -122,7 +122,7 @@ TEST(ifconfigurator_test, test_set_ip)
     ifc->destroy(ifc);
 }
 
-TEST(ifconfigurator_test, test_set_netmask)
+TEST(ioctl_ifconfigurator_test, test_set_netmask)
 {
     SocketSyscallMock socketSyscallMock;
     IoctlSyscallMock ioctlSyscallMock;
@@ -131,7 +131,7 @@ TEST(ifconfigurator_test, test_set_netmask)
     // Create ifconfigurator
     EXPECT_FUNCTION_CALL(socketSyscallMock, (AF_INET, _, _))
         .WillOnce(Return(6));
-    ifconfigurator *ifc = create_ifconfigurator();
+    ifconfigurator *ifc = create_ioctl_ifconfigurator();
 
     // Request we expect
     struct in_addr newAddr = {};
@@ -156,7 +156,7 @@ TEST(ifconfigurator_test, test_set_netmask)
     ifc->destroy(ifc);
 }
 
-TEST(ifconfigurator_test, test_set_mac)
+TEST(ioctl_ifconfigurator_test, test_set_mac)
 {
     SocketSyscallMock socketSyscallMock;
     IoctlSyscallMock ioctlSyscallMock;
@@ -165,7 +165,7 @@ TEST(ifconfigurator_test, test_set_mac)
     // Create ifconfigurator
     EXPECT_FUNCTION_CALL(socketSyscallMock, (AF_INET, _, _))
         .WillOnce(Return(6));
-    ifconfigurator *ifc = create_ifconfigurator();
+    ifconfigurator *ifc = create_ioctl_ifconfigurator();
 
     // Request we expect
     struct sockaddr newAddr = {};

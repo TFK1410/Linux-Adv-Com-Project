@@ -92,7 +92,7 @@ static bool ifconfigurator_get_if_config(struct ifconfigurator *self, const char
     return true;
 }
 
-bool ifconfigurator_set_ip(struct ifconfigurator *self, const char *iface, struct in_addr *new_addr)
+static bool ifconfigurator_set_ip(struct ifconfigurator *self, const char *iface, struct in_addr *new_addr)
 {
     struct ifreq ifr;
     prepare_if_request(&ifr, iface);
@@ -100,7 +100,7 @@ bool ifconfigurator_set_ip(struct ifconfigurator *self, const char *iface, struc
     return ioctl(self->ctx->fd, SIOCSIFADDR, &ifr) == 0;
 }
 
-bool ifconfigurator_set_net_mask(struct ifconfigurator *self, const char *iface, struct in_addr *new_net_mask)
+static bool ifconfigurator_set_net_mask(struct ifconfigurator *self, const char *iface, struct in_addr *new_net_mask)
 {
     struct ifreq ifr;
     prepare_if_request(&ifr, iface);
@@ -108,7 +108,7 @@ bool ifconfigurator_set_net_mask(struct ifconfigurator *self, const char *iface,
     return ioctl(self->ctx->fd, SIOCSIFNETMASK, &ifr) == 0;
 }
 
-bool ifconfigurator_set_mac(struct ifconfigurator *self, const char *iface, struct sockaddr *new_mac)
+static bool ifconfigurator_set_mac(struct ifconfigurator *self, const char *iface, struct sockaddr *new_mac)
 {
     struct ifreq ifr;
     prepare_if_request(&ifr, iface);
@@ -116,14 +116,14 @@ bool ifconfigurator_set_mac(struct ifconfigurator *self, const char *iface, stru
     return ioctl(self->ctx->fd, SIOCSIFHWADDR, &ifr) == 0;
 }
 
-void ifconfigurator_destroy(struct ifconfigurator *self)
+static void ifconfigurator_destroy(struct ifconfigurator *self)
 {
     close(self->ctx->fd);
     free(self->ctx);
     free(self);
 }
 
-ifconfigurator *create_ifconfigurator()
+ifconfigurator *create_ioctl_ifconfigurator()
 {
     ifconfigurator *self = malloc(sizeof(ifconfigurator));
     ifconfigurator_ctx *ctx = malloc(sizeof(ifconfigurator_ctx));

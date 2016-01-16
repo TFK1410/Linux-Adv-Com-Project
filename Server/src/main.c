@@ -2,6 +2,7 @@
 #include <libconfig.h>
 #include "server_eh.h"
 #include "ifconfigurator.h"
+#include "signal.h"
 
 static int load_cfg(char* cfg_name, int* port, int* size){
     config_t cfg;
@@ -46,8 +47,25 @@ int main(int argc, const char *argv[])
         fprintf(stderr, "Error when reading config file. Shutting down now.\n");
         return 1;
     }
-    ////////////
-    ifconfigurator *ifc = create_ifconfigurator();
+
+    // Ignore SIGPIPE
+    {
+        struct sigaction action = {
+            .sa_handler = SIG_IGN
+        };
+        sigaction(SIGPIPE, &action, NULL);
+    }
+
+    // Create ifconfigurator
+    ifconfigurator *ifc = create_netlink_ifconfigurator();
+    if (ifc != NULL) {
+        printf("Using our driver for configuring interfaces\n");
+    } else {
+        printf("Falling back to ioctl for configuring interfaces\n");
+        ifc = create_ioctl_ifconfigurator();
+    }
+
+
     reactor *r = create_reactor(size);
     event_handler *s_eh = create_server_eh(r,port,ifc, create_client_eh);
     if (s_eh != NULL){

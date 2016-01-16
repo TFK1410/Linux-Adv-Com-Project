@@ -12,4 +12,6 @@ IMPLEMENT_FUNCTION_MOCK2(ListenSyscallMock, listen, int(int, int));
 IMPLEMENT_FUNCTION_MOCK3(AcceptSyscallMock, accept, int(int, struct sockaddr *, socklen_t *));
 IMPLEMENT_FUNCTION_MOCK3(IoctlSyscallMock, ioctl, int(int, long, void *));
 IMPLEMENT_FUNCTION_MOCK2(FopenCallMock, fopen, FILE* (const char *, const char *));
+IMPLEMENT_FUNCTION_MOCK6(SendToSyscallMock, sendto, ssize_t(int, const void *, size_t, int, const struct sockaddr *, socklen_t));
+IMPLEMENT_FUNCTION_MOCK4(RecvSyscallMock, recv, ssize_t(int, void *, size_t, int));
 

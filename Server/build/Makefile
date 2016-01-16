@@ -17,7 +17,7 @@ BUILDROOT_CC = $(BUILDROOT_HOST_PATH)/usr/bin/i686-linux-gcc
 
 
 # Flags common for host and target builds
-CFLAGS = -Wall -g
+CFLAGS = -Wall -g -I../module/
 LDFLAGS = -lconfig
 
 # Flags for host builds
@@ -30,22 +30,23 @@ TARGET_LDFLAGS =
 
 # Flags for test builds (These will also have target flags)
 TEST_CXXFLAGS = -I$(GTEST_PATH)/googletest/include -I$(GTEST_PATH)/googlemock/include -I$(CMOCK_PATH)/include
-TEST_LDFLAGS = $(GTEST_PATH)/googletest/libgtest.a $(GTEST_PATH)/googlemock/libgmock.a -lpthread -ldl -lgcov
+TEST_LDFLAGS = $(GTEST_PATH)/googletest/lib/.libs/libgtest.a $(GTEST_PATH)/googlemock/lib/.libs/libgmock.a -lpthread -ldl -lgcov
 
 
 
 # Source files
-SOURCES_FOR_TESTING = client_eh.c reactor.c server_eh.c ifconfigurator.c utils.c
+SOURCES_FOR_TESTING = client_eh.c reactor.c server_eh.c ioctl_ifconfigurator.c netlink_ifconfigurator.c utils.c
 SOURCES = main.c $(SOURCES_FOR_TESTING)
 
 TEST_SOURCES = \
 	client_eh_test.cpp \
-	ifconfigurator_test.cpp \
+	ioctl_ifconfigurator_test.cpp \
 	main.cpp \
 	MockEventHandler.cpp \
 	MockIfconfigurator.cpp \
 	MockReactor.cpp \
 	MockSyscalls.cpp \
+	netlink_ifconfigurator_test.cpp \
 	reactor_test.cpp \
 	server_eh_test.cpp
 
@@ -60,8 +61,6 @@ TEST_NAME = server_test
 TARGET_OBJECTS = $(SOURCES:%.c=targetobjs/%.o)
 HOST_OBJECTS = $(SOURCES:%.c=hostobjs/%.o)
 TEST_OBJECTS = $(SOURCES_FOR_TESTING:%.c=hostcovobjs/%.o) $(TEST_SOURCES:%.cpp=testobjs/%.o)
-
-
 
 # Default target
 all: $(TARGET_NAME) $(HOST_NAME) $(TEST_NAME)
@@ -106,7 +105,6 @@ coverage: test
 	lcov -r coverage/coverage.info /usr/\* tst/* -o coverage/coverage.info
 	genhtml coverage/coverage.info --output-directory coverage/html/ --ignore-errors source
 
-
 # Clean
 clean:
 	-rm -rf hostobjs
@@ -115,6 +113,7 @@ clean:
 	-rm -rf testobjs
 	-rm -rf coverage
 	-rm -f $(TARGET_NAME)
+	make -C ../../Module/ clean
 
 
 .PHONY: test coverage clean
