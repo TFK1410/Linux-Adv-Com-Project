@@ -3,8 +3,6 @@
 #include <stdlib.h>
 #include <errno.h>
 
-#define MAX_BATCHED_EVENTS 5
-
 struct reactor_ctx{
     size_t size;
     size_t registered_handlers;
@@ -48,7 +46,7 @@ static void rm_eh(reactor *self, event_handler *eh){
 
 static void event_loop(reactor *self){
     int i=0;
-    struct epoll_event *events = calloc(MAX_BATCHED_EVENTS, sizeof(struct epoll_event));
+    struct epoll_event *events = calloc(self->ctx->size, sizeof(struct epoll_event));
 
     for (;;) {
         i = epoll_wait(self->ctx->epoll_fd, events, self->ctx->size, -1);

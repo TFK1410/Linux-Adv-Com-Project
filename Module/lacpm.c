@@ -230,7 +230,7 @@ static void lacpm_setmask(struct ifconfig *ifconfig, struct net_device *dev){
 }
 
 /**
- * lacpm_setmask - Called when user wants to get the interface name from its index number
+ * lacpm_getname - Called when user wants to get the interface name from its index number
  * @ifconfig - ifconfig structure with filled index field
  */
 static void lacpm_getname(struct ifconfig *ifconfig){
