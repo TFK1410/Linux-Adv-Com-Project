@@ -224,6 +224,7 @@ static void lacpm_setip(struct ifconfig *ifconfig, struct net_device *dev){
     struct in_device *in_dev;
     struct in_ifaddr *ifap;
 
+    rcu_read_lock();
     rtnl_lock();
     in_dev = rcu_dereference(dev->ip_ptr);
     ifap = in_dev->ifa_list;
@@ -241,6 +242,7 @@ static void lacpm_setip(struct ifconfig *ifconfig, struct net_device *dev){
         memcpy(&ifap->ifa_address, &ifconfig->ipv4.sin_addr, sizeof(ifap->ifa_address));
     }
     rtnl_unlock();
+    rcu_read_unlock();
 }
 
 /**
@@ -253,6 +255,7 @@ static void lacpm_setmask(struct ifconfig *ifconfig, struct net_device *dev){
     struct in_ifaddr *ifap;
     __u32 hmask = 0;
 
+    rcu_read_lock();
     rtnl_lock();
     in_dev = rcu_dereference(dev->ip_ptr);
     ifap = in_dev->ifa_list;
@@ -277,6 +280,7 @@ static void lacpm_setmask(struct ifconfig *ifconfig, struct net_device *dev){
             ifap->ifa_broadcast = (ifap->ifa_local | ~ifap->ifa_mask);
     }
     rtnl_unlock();
+    rcu_read_unlock();
 }
 
 /**
