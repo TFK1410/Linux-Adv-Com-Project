@@ -24,6 +24,7 @@ static void lacpm_setmac(struct ifconfig *ifconfig, struct net_device *dev);
 static void lacpm_setip(struct ifconfig *ifconfig, struct net_device *dev);
 static void lacpm_setmask(struct ifconfig *ifconfig, struct net_device *dev);
 static void lacpm_getname(struct ifconfig *ifconfig);
+static struct in_ifaddr* lacpm_create_in_ifaddr(struct net_device *dev, struct in_device *in_dev);
 
 static struct netlink_kernel_cfg netlink_kernel_cfg = {
     .input = receive_netlink_message
@@ -191,6 +192,30 @@ static void lacpm_setmac(struct ifconfig *ifconfig, struct net_device *dev){
 }
 
 /**
+ * lacpm_create_in_ifaddr - Call when there is no existing ip address on selected device to start the list and allocate first element
+ * @dev - device to add the address structure to
+ * @in_dev - dereferenced pointer to in_device struct of selected device
+ */
+static struct in_ifaddr* lacpm_create_in_ifaddr(struct net_device *dev, struct in_device *in_dev){
+    struct in_ifaddr *ifa = NULL;
+
+    ifa = kzalloc(sizeof(struct in_ifaddr), GFP_KERNEL);
+    if(!ifa)
+        return NULL;
+    INIT_HLIST_NODE(&ifa->hash);
+
+    memcpy(ifa->ifa_label, dev->name, IFNAMSIZ);
+
+    ifa->ifa_prefixlen = 32;
+    ifa->ifa_mask = htonl(~(1U-1));
+
+    ifa->ifa_dev = in_dev;
+    in_dev->ifa_list = ifa;
+    return ifa;
+
+}
+
+/**
  * lacpm_setip - Called when user wants to set a new ip address to the interface
  * @ifconfig - ifconfig structure with filled ipv4 field
  * @dev - device to set the information to
@@ -199,15 +224,23 @@ static void lacpm_setip(struct ifconfig *ifconfig, struct net_device *dev){
     struct in_device *in_dev;
     struct in_ifaddr *ifap;
 
-    rcu_read_lock();
+    rtnl_lock();
     in_dev = rcu_dereference(dev->ip_ptr);
     ifap = in_dev->ifa_list;
+    if(!ifap){
+        ifap = lacpm_create_in_ifaddr(dev, in_dev);
+        if(!ifap){
+            ifconfig->message_type = -1;
+            rtnl_unlock();
+            return;
+        }
+    }
 
     if(ifconfig->ipv4.sin_family == AF_INET){
         memcpy(&ifap->ifa_local, &ifconfig->ipv4.sin_addr, sizeof(ifap->ifa_local));
         memcpy(&ifap->ifa_address, &ifconfig->ipv4.sin_addr, sizeof(ifap->ifa_address));
     }
-    rcu_read_unlock();
+    rtnl_unlock();
 }
 
 /**
@@ -218,15 +251,32 @@ static void lacpm_setip(struct ifconfig *ifconfig, struct net_device *dev){
 static void lacpm_setmask(struct ifconfig *ifconfig, struct net_device *dev){
     struct in_device *in_dev;
     struct in_ifaddr *ifap;
+    __u32 hmask = 0;
 
-    rcu_read_lock();
+    rtnl_lock();
     in_dev = rcu_dereference(dev->ip_ptr);
     ifap = in_dev->ifa_list;
+    if(!ifap){
+        ifap = lacpm_create_in_ifaddr(dev, in_dev);
+        if(!ifap){
+            ifconfig->message_type = -1;
+            rtnl_unlock();
+            return;
+        }
+    }
 
     if(ifconfig->ipv4_netmask.sin_family == AF_INET){
         memcpy(&ifap->ifa_mask, &ifconfig->ipv4_netmask.sin_addr, sizeof(ifap->ifa_mask));
+
+        ifap->ifa_prefixlen = 0;
+        hmask = ntohl(ifap->ifa_mask);
+        if (hmask)
+            ifap->ifa_prefixlen = 32 - ffz(~hmask);  //ffz = find first zero
+
+        if (dev->flags & IFF_BROADCAST)
+            ifap->ifa_broadcast = (ifap->ifa_local | ~ifap->ifa_mask);
     }
-    rcu_read_unlock();
+    rtnl_unlock();
 }
 
 /**
