@@ -2,6 +2,7 @@
 obj-m := lacpm.o
 ccflags-y += -g -I$(src)
 
+# BUILDROOT_PATH = /home/xubuntu/buildroot
 HOST_KERNEL_BUILD_DIR = /lib/modules/$(shell uname -r)/build
 TARGET_KERNEL_BUILD_DIR = $(BUILDROOT_PATH)/output/build/linux-4.3
 
